@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BomberTime - Manette</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #fce4ec; text-align: center; margin: 0; padding: 20px; color: #5c3a21; }
+        h1 { color: #d81b60; font-size: 2.5em; }
+        
+        #join-screen { margin-top: 10vh; }
+        input { font-size: 1.5em; text-align: center; text-transform: uppercase; width: 80%; padding: 15px; margin: 10px 0; border-radius: 15px; border: 3px solid #ff6b6b; box-sizing: border-box; }
+        button.btn-join { font-size: 1.5em; background: #ff6b6b; color: white; border: none; padding: 15px 40px; border-radius: 15px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 80%; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        button.btn-join:active { transform: translateY(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        #controller-screen { display: none; margin-top: 5vh; }
+        .team-info { background: white; border: 3px solid #ff6b6b; border-radius: 15px; padding: 15px; margin: 10px auto; width: 80%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .team-info h2 { margin: 0; color: #ff6b6b; font-size: 1.5em; }
+        .team-info p { font-size: 1.2em; margin: 5px 0 0 0; font-weight: bold; }
+        
+        .waiting-text { font-size: 1.2em; color: #888; margin-top: 20px; font-style: italic; transition: color 0.3s; }
+
+        /* Styles de la manette */
+        #controls { display: flex; justify-content: space-around; align-items: center; margin-top: 30px; opacity: 1; transition: opacity 0.3s, filter 0.3s; }
+        #controls.disabled { opacity: 0.4; filter: grayscale(100%); pointer-events: none; }
+        
+        .dpad { display: flex; flex-direction: column; align-items: center; }
+        .dpad-row { display: flex; gap: 50px; margin: 10px 0; }
+        .dir-btn { width: 70px; height: 70px; font-size: 2em; border-radius: 15px; background: #5c3a21; color: white; border: 3px solid #f9a826; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #3a2211; }
+        .dir-btn:active { background: #f9a826; color: #5c3a21; transform: translateY(4px); box-shadow: 0 0 0 #3a2211; }
+        
+        .actions { display: flex; flex-direction: column; gap: 30px; }
+        .act-btn { width: 80px; height: 80px; font-size: 2.5em; border-radius: 50%; background: #ff6b6b; color: white; border: 3px solid #d81b60; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #a01140; }
+        .act-btn:active { background: #d81b60; transform: translateY(4px); box-shadow: 0 0 0 #a01140; }
+        .act-btn.defuse { background: #4ecdc4; border-color: #2b9a92; box-shadow: 0 4px 0 #1f706a; }
+        .act-btn.defuse:active { background: #2b9a92; box-shadow: 0 0 0 #1f706a; }
+    </style>
+</head>
+<body>
+    <div id="join-screen">
+        <h1>BomberTime</h1>
+        <p>Rejoignez la partie en cours</p>
+        <input type="text" id="roomInput" placeholder="CODE SALLE" maxlength="4">
+        <input type="text" id="nameInput" placeholder="VOTRE PSEUDO">
+        <br>
+        <button class="btn-join" onclick="joinRoom()">REJOINDRE</button>
+    </div>
+
+    <div id="controller-screen">
+        <h1>BomberTime</h1>
+        <div class="team-info">
+            <h2>ÉQUIPE <span id="teamNumber"></span></h2>
+            <p>JOUEUR <span id="playerNumber"></span></p>
+        </div>
+        <p class="waiting-text" id="statusText">En attente du lancement de la partie...</p>
+        
+        <div id="controls" class="disabled">
+            <div class="dpad">
+                <button id="btn-up" class="dir-btn">▲</button>
+                <div class="dpad-row">
+                    <button id="btn-left" class="dir-btn">◀</button>
+                    <button id="btn-right" class="dir-btn">▶</button>
+                </div>
+                <button id="btn-down" class="dir-btn">▼</button>
+            </div>
+            <div class="actions">
+                <button id="btn-bomb" class="act-btn">🎂</button>
+                <button id="btn-defuse" class="act-btn defuse">💨</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentRoomCode = null;
+
+        function joinRoom() {
+            const roomCode = document.getElementById('roomInput').value.toUpperCase();
+            const playerName = document.getElementById('nameInput').value.trim();
+            if (roomCode.length === 4) {
+                currentRoomCode = roomCode;
+                socket.emit('joinLobby', { roomCode, playerName });
+            } else {
+                alert("Le code de la salle doit faire 4 caractères.");
+            }
+        }
+
+        socket.on('joined', (data) => {
+            document.getElementById('join-screen').style.display = 'none';
+            document.getElementById('controller-screen').style.display = 'block';
+            document.getElementById('teamNumber').innerText = data.team;
+            document.getElementById('playerNumber').innerText = data.playerNumber;
+        });
+
+        // Gestion du Tour (Actif / Inactif)
+        socket.on('turnUpdate', (isActive) => {
+            const controls = document.getElementById('controls');
+            const statusText = document.getElementById('statusText');
+            if (isActive) {
+                controls.classList.remove('disabled');
+                statusText.innerText = "C'EST VOTRE TOUR !";
+                statusText.style.color = "#d81b60";
+                statusText.style.fontWeight = "bold";
+            } else {
+                controls.classList.add('disabled');
+                statusText.innerText = "Attendez, c'est le tour de votre coéquipier...";
+                statusText.style.color = "#888";
+                statusText.style.fontWeight = "normal";
+            }
+        });
+
+        // Logique d'envoi des commandes
+        let activeDirection = null;
+        let moveInterval = null;
+
+        function startMoving(dir) {
+            if (activeDirection !== dir) {
+                activeDirection = dir;
+                socket.emit('move', { roomCode: currentRoomCode, direction: dir });
+                
+                // Répétition si on maintient appuyé (simule le déplacement continu)
+                if (moveInterval) clearInterval(moveInterval);
+                moveInterval = setInterval(() => {
+                    socket.emit('move', { roomCode: currentRoomCode, direction: dir });
+                }, 150); // 150ms permet un déplacement fluide case par case
+            }
+        }
+
+        function stopMoving(dir) {
+            if (activeDirection === dir) {
+                activeDirection = null;
+                if (moveInterval) clearInterval(moveInterval);
+            }
+        }
+
+        // Configuration des événements tactiles (et clics pour tester sur PC)
+        ['up', 'down', 'left', 'right'].forEach(dir => {
+            const btn = document.getElementById(`btn-${dir}`);
+            
+            // Événements Touch (Mobile)
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); startMoving(dir); }, {passive: false});
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); stopMoving(dir); });
+            btn.addEventListener('touchcancel', (e) => { e.preventDefault(); stopMoving(dir); });
+            
+            // Événements Mouse (PC)
+            btn.addEventListener('mousedown', (e) => { e.preventDefault(); startMoving(dir); });
+            btn.addEventListener('mouseup', (e) => { e.preventDefault(); stopMoving(dir); });
+            btn.addEventListener('mouseleave', (e) => { e.preventDefault(); stopMoving(dir); });
+        });
+
+        // Actions (Bombe / Désamorçage) prévues pour l'étape 4
+        const btnBomb = document.getElementById('btn-bomb');
+        const btnDefuse = document.getElementById('btn-defuse');
+
+        btnBomb.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            socket.emit('action', { roomCode: currentRoomCode, type: 'bomb' });
+        });
+        btnBomb.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            socket.emit('action', { roomCode: currentRoomCode, type: 'bomb' });
+        });
+
+        btnDefuse.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            socket.emit('action', { roomCode: currentRoomCode, type: 'defuse' });
+        });
+        btnDefuse.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            socket.emit('action', { roomCode: currentRoomCode, type: 'defuse' });
+        });
+
+        socket.on('error', (msg) => {
+            alert(msg);
+        });
+    </script>
+</body>
+</html>

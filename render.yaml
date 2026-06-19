@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: bombertime-server
+    env: node
+    plan: free # Plan gratuit de Render
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x # Recommandé pour s'assurer de la compatibilité
+      - key: PORT
+        value: 10000 # Render injectera son propre PORT, mais il est de bon ton de le lister
