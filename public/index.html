@@ -19,7 +19,8 @@
 <body>
     <h1>BomberTime</h1>
     <div id="lobby-screen">
-        <p class="instructions">Allez sur l'application mobile et rejoignez avec ce code :</p>
+        <p class="instructions">Scannez ce QR Code ou allez sur <strong><span id="urlText"></span>/mobile.html</strong> pour rejoindre :</p>
+        <div id="qrcode" style="margin: 20px auto; padding: 10px; background: #f5e6d3; display: inline-block; border-radius: 10px; border: 3px solid #f9a826;"></div>
         <div id="roomCode">CHARGEMENT...</div>
         <h3>Joueurs connectés : <span id="playerCount">0</span></h3>
         <button id="btnStart" style="display:none; font-size: 1.5em; background: #f9a826; color: #2b1d14; padding: 15px 30px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; margin-bottom: 20px;">Lancer la partie</button>
@@ -38,9 +39,13 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const socket = io();
         let currentRoom = null;
+
+        // Afficher l'URL brute au cas où
+        document.getElementById('urlText').innerText = window.location.host;
 
         socket.on('connect', () => {
             socket.emit('createLobby');
@@ -49,6 +54,18 @@
         socket.on('lobbyCreated', (data) => {
             currentRoom = data.roomCode;
             document.getElementById('roomCode').innerText = currentRoom;
+            
+            // Génération du QR Code
+            const joinUrl = window.location.origin + '/mobile.html?room=' + currentRoom;
+            document.getElementById('qrcode').innerHTML = '';
+            new QRCode(document.getElementById("qrcode"), {
+                text: joinUrl,
+                width: 150,
+                height: 150,
+                colorDark : "#2b1d14",
+                colorLight : "#f5e6d3",
+                correctLevel : QRCode.CorrectLevel.M
+            });
         });
 
         socket.on('playerJoined', (data) => {

@@ -75,6 +75,13 @@
         const socket = io();
         let currentRoomCode = null;
 
+        // Pré-remplir le code de salle si on vient du QR Code
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomParam = urlParams.get('room');
+        if (roomParam) {
+            document.getElementById('roomInput').value = roomParam.toUpperCase();
+        }
+
         function joinRoom() {
             const roomCode = document.getElementById('roomInput').value.toUpperCase();
             const playerName = document.getElementById('nameInput').value.trim();
