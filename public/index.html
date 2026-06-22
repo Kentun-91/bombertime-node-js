@@ -15,6 +15,8 @@
         .team-card h3 { margin-top: 0; color: #f9a826; }
         .team-card p { font-size: 1.1em; margin: 5px 0; }
         .player-badge { display: inline-block; background-color: #ffb4a2; color: #2b1d14; border-radius: 50%; width: 25px; height: 25px; line-height: 25px; font-weight: bold; margin-left: 10px; }
+        #playersList { margin-bottom: 20px; }
+        canvas { image-rendering: pixelated; }
     </style>
 </head>
 <body>
@@ -109,10 +111,27 @@
         let offsetX = 0;
         let offsetY = 0;
         let currentState = null;
+        
+        const tintCanvas = document.createElement('canvas');
+        const tintCtx = tintCanvas.getContext('2d');
+        
+        const teamColors = {
+            1: 'rgba(255, 0, 0, 0.4)',
+            2: 'rgba(0, 0, 255, 0.4)',
+            3: 'rgba(0, 255, 0, 0.4)',
+            4: 'rgba(255, 255, 0, 0.4)',
+            5: 'rgba(255, 165, 0, 0.4)',
+            6: 'rgba(128, 0, 128, 0.4)',
+            7: 'rgba(0, 255, 255, 0.4)',
+            8: 'rgba(255, 192, 203, 0.4)'
+        };
 
         function resizeCanvas(gridWidth, gridHeight) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            
+            // Désactiver le lissage pour les assets pixel-art
+            ctx.imageSmoothingEnabled = false;
             
             if (gridWidth && gridHeight) {
                 const maxTileW = canvas.width / gridWidth;
@@ -201,7 +220,7 @@
 
         function updateEntityAnim(teamId, entity) {
             if (!entityAnims[teamId]) {
-                entityAnims[teamId] = { frameIndex: 0, lastX: entity.x, lastY: entity.y, lastTime: Date.now(), deathStartTime: 0 };
+                entityAnims[teamId] = { frameIndex: 0, lastTime: Date.now(), deathStartTime: 0 };
             }
             const anim = entityAnims[teamId];
             const now = Date.now();
@@ -213,18 +232,12 @@
                 return deathFrame;
             }
 
-            if (entity.x !== anim.lastX || entity.y !== anim.lastY) {
-                if (now - anim.lastTime > 150) {
-                    anim.frameIndex = (anim.frameIndex + 1) % 3;
-                    anim.lastTime = now;
-                }
-                anim.lastX = entity.x;
-                anim.lastY = entity.y;
-            } else {
-                if (now - anim.lastTime > 200) {
-                    anim.frameIndex = 0; // idle frame is 0 (e.g. bottom1)
-                }
+            // L'animation tourne en boucle tout le temps
+            if (now - anim.lastTime > 150) {
+                anim.frameIndex = (anim.frameIndex + 1) % 3;
+                anim.lastTime = now;
             }
+            
             return anim.frameIndex;
         }
 
@@ -243,9 +256,11 @@
                     const px = offsetX + x * TILE_SIZE;
                     const py = offsetY + y * TILE_SIZE;
 
-                    // Dessiner le fond (terre)
-                    if (assets.fond1.complete) {
-                        ctx.drawImage(assets.fond1, px, py, TILE_SIZE, TILE_SIZE);
+                    // Dessiner le fond (terre) en damier
+                    const isFond1 = ((x + y) % 2 === 0);
+                    const fondImg = isFond1 ? assets.fond1 : assets.fond2;
+                    if (fondImg.complete) {
+                        ctx.drawImage(fondImg, px, py, TILE_SIZE, TILE_SIZE);
                     }
 
                     if (grid[y][x] === 1) { // Mur indestructible
@@ -255,9 +270,12 @@
                             ctx.fillStyle = '#4a2f1d';
                             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                         }
-                    } else if (grid[y][x] === 2) { // Mur destructible (Gâteau/Bloc)
-                        if (assets.fond2.complete) {
-                            ctx.drawImage(assets.fond2, px, py, TILE_SIZE, TILE_SIZE);
+                    } else if (grid[y][x] === 2) { // Mur destructible (Mur clair)
+                        if (assets.mur.complete) {
+                            ctx.drawImage(assets.mur, px, py, TILE_SIZE, TILE_SIZE);
+                            // Superposition blanche pour l'éclaircir
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                         } else {
                             ctx.fillStyle = '#d2b48c'; // Beige biscuit
                             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
@@ -328,7 +346,27 @@
                 const py = offsetY + entity.y * TILE_SIZE;
 
                 if (imgToDraw && imgToDraw.complete) {
-                    ctx.drawImage(imgToDraw, px, py, TILE_SIZE, TILE_SIZE);
+                    if (entity.dead) {
+                        ctx.drawImage(imgToDraw, px, py, TILE_SIZE, TILE_SIZE);
+                    } else {
+                        // Coloration de l'équipe sur un canvas temporaire
+                        tintCanvas.width = TILE_SIZE;
+                        tintCanvas.height = TILE_SIZE;
+                        tintCtx.imageSmoothingEnabled = false;
+                        tintCtx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
+                        
+                        tintCtx.drawImage(imgToDraw, 0, 0, TILE_SIZE, TILE_SIZE);
+                        
+                        // Appliquer la teinte
+                        tintCtx.globalCompositeOperation = 'source-atop';
+                        tintCtx.fillStyle = teamColors[teamId] || 'rgba(255,255,255,0)';
+                        tintCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+                        
+                        // Réinitialiser le mode
+                        tintCtx.globalCompositeOperation = 'source-over';
+                        
+                        ctx.drawImage(tintCanvas, px, py, TILE_SIZE, TILE_SIZE);
+                    }
                 } else if (entity.dead) {
                     // Fallback croix si pas d'image
                     ctx.strokeStyle = '#5c3a21';
