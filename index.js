@@ -12,19 +12,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 // État global des lobbies
 const lobbies = {};
 
-const MAP_WIDTH = 31;
-const MAP_HEIGHT = 15;
+// Les dimensions sont maintenant dynamiques
+
 const TILE_EMPTY = 0;
 const TILE_WALL = 1;
 const TILE_BLOCK = 2;
 
-function generateMap() {
+function getSpawns(width, height) {
+    return [
+        {x: 1, y: 1}, {x: width - 2, y: 1},
+        {x: 1, y: height - 2}, {x: width - 2, y: height - 2},
+        {x: Math.floor(width / 2), y: 1},
+        {x: Math.floor(width / 2), y: height - 2},
+        {x: 1, y: Math.floor(height / 2)},
+        {x: width - 2, y: Math.floor(height / 2)}
+    ];
+}
+
+function generateMap(width, height, numTeams) {
     const grid = [];
-    for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let y = 0; y < height; y++) {
         const row = [];
-        for (let x = 0; x < MAP_WIDTH; x++) {
+        for (let x = 0; x < width; x++) {
             // Murs extérieurs
-            if (y === 0 || y === MAP_HEIGHT - 1 || x === 0 || x === MAP_WIDTH - 1) {
+            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
                 row.push(TILE_WALL);
             }
             // Murs indestructibles internes (motif quadrillage)
@@ -33,26 +44,48 @@ function generateMap() {
             }
             // Murs destructibles (gâteaux/biscuits)
             else {
-                // Zone de spawn (coins) dégagée
-                const isCorner = (x <= 2 && y <= 2) || 
-                                 (x >= MAP_WIDTH - 3 && y <= 2) ||
-                                 (x <= 2 && y >= MAP_HEIGHT - 3) ||
-                                 (x >= MAP_WIDTH - 3 && y >= MAP_HEIGHT - 3);
-                
-                if (!isCorner && Math.random() < 0.6) {
-                    row.push(TILE_BLOCK);
-                } else {
-                    row.push(TILE_EMPTY);
-                }
+                row.push(TILE_BLOCK);
             }
         }
         grid.push(row);
     }
+    
+    // Dégager les zones de spawn
+    const spawns = getSpawns(width, height);
+    const spawnsToClear = Math.max(numTeams, 4); // Au moins les 4 coins
+    for (let i = 0; i < spawnsToClear; i++) {
+        const spawn = spawns[i % spawns.length];
+        for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+                const nx = spawn.x + dx;
+                const ny = spawn.y + dy;
+                if (nx > 0 && nx < width - 1 && ny > 0 && ny < height - 1) {
+                    if (Math.abs(dx) + Math.abs(dy) <= 2) {
+                        if (grid[ny][nx] !== TILE_WALL) {
+                             grid[ny][nx] = TILE_EMPTY;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Rendre quelques blocs vides aléatoirement
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            if (grid[y][x] === TILE_BLOCK && Math.random() >= 0.6) {
+                grid[y][x] = TILE_EMPTY;
+            }
+        }
+    }
+
     return grid;
 }
 
 function triggerExplosion(room, cx, cy) {
     const grid = room.gameState.grid;
+    const width = room.gameState.width;
+    const height = room.gameState.height;
     const directions = [ {dx:1,dy:0}, {dx:-1,dy:0}, {dx:0,dy:1}, {dx:0,dy:-1} ];
     const explosionCells = [{x: cx, y: cy}];
 
@@ -64,7 +97,7 @@ function triggerExplosion(room, cx, cy) {
             const nx = cx + dir.dx * i;
             const ny = cy + dir.dy * i;
             
-            if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) break;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) break;
             if (grid[ny][nx] === TILE_WALL) break;
             
             explosionCells.push({x: nx, y: ny});
@@ -72,6 +105,7 @@ function triggerExplosion(room, cx, cy) {
             
             if (grid[ny][nx] === TILE_BLOCK) {
                 grid[ny][nx] = TILE_EMPTY; // Détruit le bloc
+                room.gameState.destroyingBlocks.push({ x: nx, y: ny, time: Date.now() });
                 // 20% de chance d'apparition d'un item
                 if (Math.random() < 0.2) {
                     room.gameState.items.push({
@@ -130,6 +164,11 @@ function gameTick(roomCode) {
     
     // Nettoyage des explosions obsolètes (affichage de 500ms)
     room.gameState.explosions = room.gameState.explosions.filter(exp => now - exp.time < 500);
+
+    // Nettoyage des blocs en destruction (affichage de 500ms)
+    if (room.gameState.destroyingBlocks) {
+        room.gameState.destroyingBlocks = room.gameState.destroyingBlocks.filter(block => now - block.time < 500);
+    }
 
     // Vérification des bombes à faire exploser (3 secondes de timer)
     room.gameState.bombs = room.gameState.bombs.filter(bomb => {
@@ -190,11 +229,14 @@ io.on('connection', (socket) => {
             nextTeamId: 1,
             gameState: {
                 status: 'lobby',
+                width: 15,
+                height: 15,
                 grid: [],
                 entities: {},
                 bombs: [],
                 items: [],
-                explosions: []
+                explosions: [],
+                destroyingBlocks: []
             },
             gameInterval: null
         };
@@ -207,18 +249,23 @@ io.on('connection', (socket) => {
     socket.on('startGame', (roomCode) => {
         const room = lobbies[roomCode];
         if (room && room.screenId === socket.id && (room.gameState.status === 'lobby' || room.gameState.status === 'gameover')) {
+            const numTeams = Object.keys(room.teams).length;
+            const size = 11 + (numTeams * 4);
+            const width = size;
+            const height = size;
+
             room.gameState.status = 'playing';
-            room.gameState.grid = generateMap();
+            room.gameState.width = width;
+            room.gameState.height = height;
+            room.gameState.grid = generateMap(width, height, numTeams);
             room.gameState.bombs = [];
             room.gameState.items = [];
             room.gameState.explosions = [];
+            room.gameState.destroyingBlocks = [];
             room.gameState.winner = null;
             
             // Initialisation de la position des équipes (1 perso par équipe)
-            const spawns = [
-                {x: 1, y: 1}, {x: MAP_WIDTH-2, y: 1},
-                {x: 1, y: MAP_HEIGHT-2}, {x: MAP_WIDTH-2, y: MAP_HEIGHT-2}
-            ];
+            const spawns = getSpawns(width, height);
             
             let spawnIndex = 0;
             Object.keys(room.teams).forEach((teamId) => {
@@ -226,6 +273,7 @@ io.on('connection', (socket) => {
                 room.gameState.entities[teamId] = {
                     x: spawn.x,
                     y: spawn.y,
+                    direction: 'bottom',
                     activePlayerIndex: 1,
                     dead: false,
                     hasShield: false
@@ -321,16 +369,20 @@ io.on('connection', (socket) => {
         // Vérifier si c'est bien le tour de ce joueur dans l'équipe
         if (teamEntity.activePlayerIndex === player.playerNumber) {
             let dx = 0, dy = 0;
-            if (direction === 'up') dy = -1;
-            if (direction === 'down') dy = 1;
-            if (direction === 'left') dx = -1;
-            if (direction === 'right') dx = 1;
+            let newDir = teamEntity.direction;
+            
+            if (direction === 'up') { dy = -1; newDir = 'top'; }
+            if (direction === 'down') { dy = 1; newDir = 'bottom'; }
+            if (direction === 'left') { dx = -1; newDir = 'left'; }
+            if (direction === 'right') { dx = 1; newDir = 'right'; }
+
+            teamEntity.direction = newDir;
 
             const newX = teamEntity.x + dx;
             const newY = teamEntity.y + dy;
 
             // Logique de collision stricte Serveur
-            if (newX >= 0 && newX < MAP_WIDTH && newY >= 0 && newY < MAP_HEIGHT) {
+            if (newX >= 0 && newX < room.gameState.width && newY >= 0 && newY < room.gameState.height) {
                 if (room.gameState.grid[newY][newX] === TILE_EMPTY) {
                     // Empêcher de marcher sur une bombe (optionnel, mais typique de bomberman)
                     const isBomb = room.gameState.bombs.some(b => b.x === newX && b.y === newY);
@@ -348,8 +400,8 @@ io.on('connection', (socket) => {
                             } else if (item.type === 'portal') {
                                 // TP aléatoire sur une case vide
                                 const emptyCells = [];
-                                for (let y = 0; y < MAP_HEIGHT; y++) {
-                                    for (let x = 0; x < MAP_WIDTH; x++) {
+                                for (let y = 0; y < room.gameState.height; y++) {
+                                    for (let x = 0; x < room.gameState.width; x++) {
                                         if (room.gameState.grid[y][x] === TILE_EMPTY) emptyCells.push({x, y});
                                     }
                                 }
