@@ -12,6 +12,9 @@
         input { font-size: 1.5em; text-align: center; text-transform: uppercase; width: 80%; padding: 15px; margin: 10px 0; border-radius: 15px; border: 3px solid #ff6b6b; box-sizing: border-box; }
         button.btn-join { font-size: 1.5em; background: #ff6b6b; color: white; border: none; padding: 15px 40px; border-radius: 15px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 80%; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
         button.btn-join:active { transform: translateY(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        #team-selection-screen { display: none; margin-top: 10vh; }
+        .team-btn { font-size: 1.2em; background: #fff; color: #5c3a21; border: 3px solid #ff6b6b; padding: 10px 20px; border-radius: 10px; margin: 5px; cursor: pointer; width: 80%; }
+        .team-btn:active { background: #ffb4a2; }
         
         #controller-screen { display: none; margin-top: 5vh; }
         .team-info { background: white; border: 3px solid #ff6b6b; border-radius: 15px; padding: 15px; margin: 10px auto; width: 80%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -43,7 +46,15 @@
         <input type="text" id="roomInput" placeholder="CODE SALLE" maxlength="4">
         <input type="text" id="nameInput" placeholder="VOTRE PSEUDO">
         <br>
-        <button class="btn-join" onclick="joinRoom()">REJOINDRE</button>
+        <button class="btn-join" onclick="fetchRoom()">SUIVANT</button>
+    </div>
+
+    <div id="team-selection-screen">
+        <h1>Choix d'Équipe</h1>
+        <div id="teamsList"></div>
+        <p style="margin-top:20px;">Ou créer une nouvelle équipe :</p>
+        <input type="text" id="newTeamInput" placeholder="NOM (Max 10)" maxlength="10">
+        <button class="btn-join" onclick="joinWithNewTeam()">CRÉER & REJOINDRE</button>
     </div>
 
     <div id="controller-screen">
@@ -82,19 +93,60 @@
             document.getElementById('roomInput').value = roomParam.toUpperCase();
         }
 
-        function joinRoom() {
+        let currentPlayerName = '';
+
+        function fetchRoom() {
             const roomCode = document.getElementById('roomInput').value.toUpperCase();
-            const playerName = document.getElementById('nameInput').value.trim();
+            currentPlayerName = document.getElementById('nameInput').value.trim();
             if (roomCode.length === 4) {
                 currentRoomCode = roomCode;
-                socket.emit('joinLobby', { roomCode, playerName });
+                socket.emit('getRoomInfo', roomCode);
             } else {
                 alert("Le code de la salle doit faire 4 caractères.");
             }
         }
 
-        socket.on('joined', (data) => {
+        socket.on('roomInfo', (data) => {
             document.getElementById('join-screen').style.display = 'none';
+            document.getElementById('controller-screen').style.display = 'none';
+            document.getElementById('team-selection-screen').style.display = 'block';
+            
+            const teamsList = document.getElementById('teamsList');
+            teamsList.innerHTML = '';
+            
+            if (data.teams.length === 0) {
+                teamsList.innerHTML = '<p>Aucune équipe existante. Créez-en une !</p>';
+            } else {
+                data.teams.forEach(t => {
+                    if (t.count < 2) {
+                        const btn = document.createElement('button');
+                        btn.className = 'team-btn';
+                        btn.innerText = `Rejoindre ${t.name} (1/2)`;
+                        btn.onclick = () => { joinTeam(t.name); };
+                        teamsList.appendChild(btn);
+                    }
+                });
+                if (teamsList.innerHTML === '') {
+                    teamsList.innerHTML = '<p>Toutes les équipes sont pleines. Créez-en une nouvelle.</p>';
+                }
+            }
+        });
+
+        function joinTeam(teamName) {
+            socket.emit('joinLobby', { roomCode: currentRoomCode, playerName: currentPlayerName, teamName: teamName });
+        }
+
+        function joinWithNewTeam() {
+            let newTeam = document.getElementById('newTeamInput').value.trim();
+            if (newTeam.length > 0) {
+                joinTeam(newTeam);
+            } else {
+                alert("Veuillez entrer un nom d'équipe valide.");
+            }
+        }
+
+        socket.on('joined', (data) => {
+            document.getElementById('team-selection-screen').style.display = 'none';
             document.getElementById('controller-screen').style.display = 'block';
             document.getElementById('teamNumber').innerText = data.team;
             document.getElementById('playerNumber').innerText = data.playerNumber;
@@ -180,6 +232,13 @@
 
         socket.on('error', (msg) => {
             alert(msg);
+        });
+
+        socket.on('resetLobby', () => {
+            document.getElementById('controller-screen').style.display = 'none';
+            if (currentRoomCode) {
+                socket.emit('getRoomInfo', currentRoomCode);
+            }
         });
     </script>
 </body>

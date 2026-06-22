@@ -156,6 +156,7 @@
             fond1: new Image(),
             fond2: new Image(),
             mur: new Image(),
+            bouclier: new Image(),
             destruction: [],
             perso: { bottom: [], top: [], left: [], right: [], death: [] }
         };
@@ -163,6 +164,7 @@
         assets.fond1.src = '/asset/fond1.png';
         assets.fond2.src = '/asset/fond2.png';
         assets.mur.src = '/asset/mur-indestructible.png';
+        assets.bouclier.src = '/asset/bouclier.png';
         
         for (let i = 0; i <= 5; i++) {
             const img = new Image();
@@ -192,8 +194,14 @@
 
         document.getElementById('btnRestart').addEventListener('click', () => {
             if (currentRoom) {
-                socket.emit('startGame', currentRoom);
+                socket.emit('returnToLobby', currentRoom);
             }
+        });
+
+        socket.on('resetLobby', () => {
+            document.getElementById('gameover-screen').style.display = 'none';
+            canvas.style.display = 'none';
+            document.getElementById('lobby-screen').style.display = 'block';
         });
 
         socket.on('gameState', (state) => {
@@ -270,12 +278,9 @@
                             ctx.fillStyle = '#4a2f1d';
                             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                         }
-                    } else if (grid[y][x] === 2) { // Mur destructible (Mur clair)
-                        if (assets.mur.complete) {
-                            ctx.drawImage(assets.mur, px, py, TILE_SIZE, TILE_SIZE);
-                            // Superposition blanche pour l'éclaircir
-                            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-                            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    } else if (grid[y][x] === 2) { // Mur destructible (brique)
+                        if (assets.destruction[0].complete) {
+                            ctx.drawImage(assets.destruction[0], px, py, TILE_SIZE, TILE_SIZE);
                         } else {
                             ctx.fillStyle = '#d2b48c'; // Beige biscuit
                             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
@@ -311,14 +316,18 @@
 
             // Dessiner les items
             state.items.forEach(i => {
-                if (i.type === 'shield') {
-                    ctx.fillStyle = '#4ecdc4'; // Bouclier (cyan)
-                } else if (i.type === 'portal') {
-                    ctx.fillStyle = '#9b59b6'; // Portail (violet)
+                if (i.type === 'shield' && assets.bouclier.complete) {
+                    ctx.drawImage(assets.bouclier, offsetX + i.x * TILE_SIZE + 2, offsetY + i.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                } else {
+                    if (i.type === 'shield') {
+                        ctx.fillStyle = '#4ecdc4'; // Bouclier (cyan)
+                    } else if (i.type === 'portal') {
+                        ctx.fillStyle = '#9b59b6'; // Portail (violet)
+                    }
+                    ctx.beginPath();
+                    ctx.arc(offsetX + i.x * TILE_SIZE + TILE_SIZE/2, offsetY + i.y * TILE_SIZE + TILE_SIZE/2, TILE_SIZE/3, 0, Math.PI*2);
+                    ctx.fill();
                 }
-                ctx.beginPath();
-                ctx.arc(offsetX + i.x * TILE_SIZE + TILE_SIZE/2, offsetY + i.y * TILE_SIZE + TILE_SIZE/2, TILE_SIZE/3, 0, Math.PI*2);
-                ctx.fill();
             });
 
             // Dessiner les explosions
@@ -394,13 +403,15 @@
                     ctx.stroke();
                 }
                 
-                // Dessiner le numéro de l'équipe
+                // Dessiner le nom de l'équipe
                 if (!entity.dead) {
                     ctx.fillStyle = 'white';
-                    ctx.font = 'bold 14px Arial';
+                    ctx.font = 'bold 12px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(teamId, px + TILE_SIZE/2, py - 5);
+                    let displayName = entity.name || teamId;
+                    if (displayName.length > 10) displayName = displayName.substring(0, 10) + '...';
+                    ctx.fillText(displayName, px + TILE_SIZE/2, py - 5);
                 }
             }
         }

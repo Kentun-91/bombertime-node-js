@@ -250,6 +250,8 @@ io.on('connection', (socket) => {
         const room = lobbies[roomCode];
         if (room && room.screenId === socket.id && (room.gameState.status === 'lobby' || room.gameState.status === 'gameover')) {
             const numTeams = Object.keys(room.teams).length;
+            if (numTeams === 0) return; // Ne pas lancer sans joueur
+
             const size = 11 + (numTeams * 4);
             const width = size;
             const height = size;
@@ -271,6 +273,7 @@ io.on('connection', (socket) => {
             Object.keys(room.teams).forEach((teamId) => {
                 const spawn = spawns[spawnIndex % spawns.length];
                 room.gameState.entities[teamId] = {
+                    name: teamId, // Store the team name
                     x: spawn.x,
                     y: spawn.y,
                     direction: 'bottom',
@@ -301,30 +304,61 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Retourner au lobby depuis l'écran de fin
+    socket.on('returnToLobby', (roomCode) => {
+        const room = lobbies[roomCode];
+        if (room && room.screenId === socket.id) {
+            room.gameState.status = 'lobby';
+            room.players = [];
+            room.teams = {};
+            room.gameState.entities = {};
+            room.gameState.grid = [];
+            room.gameState.bombs = [];
+            room.gameState.items = [];
+            room.gameState.explosions = [];
+            room.gameState.destroyingBlocks = [];
+            room.gameState.winner = null;
+            if (room.gameInterval) clearInterval(room.gameInterval);
+            
+            io.to(roomCode).emit('resetLobby');
+            io.to(room.screenId).emit('playerJoined', { players: [] });
+            console.log(`Lobby ${roomCode} réinitialisé`);
+        }
+    });
+
+    // Envoyer les infos de la salle pour le choix d'équipe
+    socket.on('getRoomInfo', (roomCode) => {
+        const room = lobbies[roomCode];
+        if (room) {
+            const teamInfos = [];
+            for (const teamId in room.teams) {
+                teamInfos.push({
+                    name: teamId,
+                    count: room.teams[teamId].length
+                });
+            }
+            socket.emit('roomInfo', { teams: teamInfos });
+        } else {
+            socket.emit('error', 'Lobby introuvable.');
+        }
+    });
+
     // Un joueur mobile rejoint un lobby
-    socket.on('joinLobby', ({ roomCode, playerName }) => {
+    socket.on('joinLobby', ({ roomCode, playerName, teamName }) => {
         const room = lobbies[roomCode];
         if (room) {
             socket.join(roomCode);
             
-            // Assigner l'équipe (2 joueurs par équipe)
-            let assignedTeam = null;
+            let assignedTeam = teamName;
             let teamPlayerIndex = 1;
             
-            // Chercher une équipe avec 1 seul joueur
-            for (const teamId in room.teams) {
-                if (room.teams[teamId].length < 2) {
-                    assignedTeam = parseInt(teamId);
-                    teamPlayerIndex = 2;
-                    break;
-                }
-            }
-            
-            // Créer une nouvelle équipe si aucune n'est disponible
-            if (!assignedTeam) {
-                assignedTeam = room.nextTeamId++;
+            if (!room.teams[assignedTeam]) {
                 room.teams[assignedTeam] = [];
-                teamPlayerIndex = 1;
+            } else if (room.teams[assignedTeam].length >= 2) {
+                socket.emit('error', 'Cette équipe est déjà complète.');
+                return;
+            } else {
+                teamPlayerIndex = 2;
             }
             
             const newPlayer = {
