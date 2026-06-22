@@ -57,13 +57,22 @@
         <button class="btn-join" onclick="joinWithNewTeam()">CRÉER & REJOINDRE</button>
     </div>
 
+    <div id="waiting-screen" style="display: none; margin-top: 10vh;">
+        <h1>BomberTime</h1>
+        <div class="team-info">
+            <h2>ÉQUIPE <span id="waitTeamNumber"></span></h2>
+            <p>JOUEUR <span id="waitPlayerNumber"></span></p>
+        </div>
+        <p class="waiting-text">En attente du lancement de la partie...</p>
+    </div>
+
     <div id="controller-screen">
         <h1>BomberTime</h1>
         <div class="team-info">
             <h2>ÉQUIPE <span id="teamNumber"></span></h2>
             <p>JOUEUR <span id="playerNumber"></span></p>
         </div>
-        <p class="waiting-text" id="statusText">En attente du lancement de la partie...</p>
+        <p class="waiting-text" id="statusText">C'est parti !</p>
         
         <div id="controls" class="disabled">
             <div class="dpad">
@@ -106,10 +115,19 @@
             }
         }
 
+        let currentScreen = 'join-screen';
+
+        function showScreen(id) {
+            ['join-screen', 'team-selection-screen', 'waiting-screen', 'controller-screen'].forEach(s => {
+                document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+            });
+            currentScreen = id;
+        }
+
         socket.on('roomInfo', (data) => {
-            document.getElementById('join-screen').style.display = 'none';
-            document.getElementById('controller-screen').style.display = 'none';
-            document.getElementById('team-selection-screen').style.display = 'block';
+            if (currentScreen === 'join-screen') {
+                showScreen('team-selection-screen');
+            }
             
             const teamsList = document.getElementById('teamsList');
             teamsList.innerHTML = '';
@@ -146,10 +164,18 @@
         }
 
         socket.on('joined', (data) => {
-            document.getElementById('team-selection-screen').style.display = 'none';
-            document.getElementById('controller-screen').style.display = 'block';
+            showScreen('waiting-screen');
+            document.getElementById('waitTeamNumber').innerText = data.team;
+            document.getElementById('waitPlayerNumber').innerText = data.playerNumber;
+            // Préparer aussi l'écran manette
             document.getElementById('teamNumber').innerText = data.team;
             document.getElementById('playerNumber').innerText = data.playerNumber;
+        });
+
+        socket.on('gameStarted', () => {
+            if (currentScreen === 'waiting-screen') {
+                showScreen('controller-screen');
+            }
         });
 
         // Gestion du Tour (Actif / Inactif)
@@ -235,9 +261,11 @@
         });
 
         socket.on('resetLobby', () => {
-            document.getElementById('controller-screen').style.display = 'none';
             if (currentRoomCode) {
                 socket.emit('getRoomInfo', currentRoomCode);
+                showScreen('team-selection-screen');
+            } else {
+                showScreen('join-screen');
             }
         });
     </script>

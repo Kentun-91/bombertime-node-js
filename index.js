@@ -322,6 +322,10 @@ io.on('connection', (socket) => {
             
             io.to(roomCode).emit('resetLobby');
             io.to(room.screenId).emit('playerJoined', { players: [] });
+            
+            // Broadcast empty teams
+            io.to(roomCode).emit('roomInfo', { teams: [] });
+            
             console.log(`Lobby ${roomCode} réinitialisé`);
         }
     });
@@ -376,6 +380,16 @@ io.on('connection', (socket) => {
                 team: assignedTeam,
                 playerNumber: teamPlayerIndex
             });
+            
+            // Broadcast the new team state to everyone in the room
+            const teamInfos = [];
+            for (const teamId in room.teams) {
+                teamInfos.push({
+                    name: teamId,
+                    count: room.teams[teamId].length
+                });
+            }
+            io.to(roomCode).emit('roomInfo', { teams: teamInfos });
             
             // Mettre à jour l'écran principal
             io.to(room.screenId).emit('playerJoined', {
