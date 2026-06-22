@@ -334,11 +334,13 @@ io.on('connection', (socket) => {
     socket.on('getRoomInfo', (roomCode) => {
         const room = lobbies[roomCode];
         if (room) {
+            socket.join(roomCode); // Join to receive broadcasts while browsing lobby
             const teamInfos = [];
             for (const teamId in room.teams) {
                 teamInfos.push({
                     name: teamId,
-                    count: room.teams[teamId].length
+                    count: room.teams[teamId].length,
+                    players: room.teams[teamId].map(p => p.name)
                 });
             }
             socket.emit('roomInfo', { teams: teamInfos });
@@ -386,7 +388,8 @@ io.on('connection', (socket) => {
             for (const teamId in room.teams) {
                 teamInfos.push({
                     name: teamId,
-                    count: room.teams[teamId].length
+                    count: room.teams[teamId].length,
+                    players: room.teams[teamId].map(p => p.name)
                 });
             }
             io.to(roomCode).emit('roomInfo', { teams: teamInfos });

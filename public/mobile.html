@@ -136,17 +136,24 @@
                 teamsList.innerHTML = '<p>Aucune équipe existante. Créez-en une !</p>';
             } else {
                 data.teams.forEach(t => {
-                    if (t.count < 2) {
-                        const btn = document.createElement('button');
-                        btn.className = 'team-btn';
-                        btn.innerText = `Rejoindre ${t.name} (1/2)`;
-                        btn.onclick = () => { joinTeam(t.name); };
-                        teamsList.appendChild(btn);
+                    const btn = document.createElement('button');
+                    btn.className = 'team-btn';
+                    
+                    let btnText = `${t.name} (${t.count}/2)`;
+                    if (t.players && t.players.length > 0) {
+                        btnText += `\n👤 ${t.players.join(', ')}`;
                     }
+                    btn.innerText = btnText;
+                    
+                    if (t.count < 2) {
+                        btn.onclick = () => { joinTeam(t.name); };
+                    } else {
+                        btn.style.opacity = '0.5';
+                        btn.style.cursor = 'not-allowed';
+                        btn.disabled = true;
+                    }
+                    teamsList.appendChild(btn);
                 });
-                if (teamsList.innerHTML === '') {
-                    teamsList.innerHTML = '<p>Toutes les équipes sont pleines. Créez-en une nouvelle.</p>';
-                }
             }
         });
 
