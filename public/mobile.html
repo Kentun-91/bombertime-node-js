@@ -37,6 +37,8 @@
         .act-btn:active { background: #d81b60; transform: translateY(4px); box-shadow: 0 0 0 #a01140; }
         .act-btn.defuse { background: #4ecdc4; border-color: #2b9a92; box-shadow: 0 4px 0 #1f706a; }
         .act-btn.defuse:active { background: #2b9a92; box-shadow: 0 0 0 #1f706a; }
+        .act-btn.on-cooldown { background: #888; border-color: #555; pointer-events: none; font-size: 1.5em; font-weight: bold; }
+        .act-btn.consumed { background: #555; border-color: #333; pointer-events: none; opacity: 0.5; }
     </style>
 </head>
 <body>
@@ -179,10 +181,21 @@
             document.getElementById('playerNumber').innerText = data.playerNumber;
         });
 
+        let bombCooldownInterval = null;
+
         socket.on('gameStarted', () => {
             if (currentScreen === 'waiting-screen') {
                 showScreen('controller-screen');
             }
+            // Reset buttons
+            const btnBomb = document.getElementById('btn-bomb');
+            btnBomb.classList.remove('on-cooldown');
+            btnBomb.innerText = "🎂";
+            if (bombCooldownInterval) clearInterval(bombCooldownInterval);
+
+            const btnDefuse = document.getElementById('btn-defuse');
+            btnDefuse.classList.remove('consumed');
+            btnDefuse.innerText = "💨";
         });
 
         // Gestion du Tour (Actif / Inactif)
@@ -261,6 +274,36 @@
         btnDefuse.addEventListener('mousedown', (e) => {
             e.preventDefault();
             socket.emit('action', { roomCode: currentRoomCode, type: 'defuse' });
+        });
+
+        socket.on('cooldown', (data) => {
+            if (data.type === 'bomb') {
+                const btn = document.getElementById('btn-bomb');
+                btn.classList.add('on-cooldown');
+                let remaining = data.duration / 1000;
+                btn.innerText = remaining + "s";
+                
+                if (bombCooldownInterval) clearInterval(bombCooldownInterval);
+                
+                bombCooldownInterval = setInterval(() => {
+                    remaining--;
+                    if (remaining > 0) {
+                        btn.innerText = remaining + "s";
+                    } else {
+                        clearInterval(bombCooldownInterval);
+                        btn.classList.remove('on-cooldown');
+                        btn.innerText = "🎂";
+                    }
+                }, 1000);
+            }
+        });
+
+        socket.on('actionConsumed', (data) => {
+            if (data.type === 'defuse') {
+                const btn = document.getElementById('btn-defuse');
+                btn.classList.add('consumed');
+                btn.innerText = "❌";
+            }
         });
 
         socket.on('error', (msg) => {

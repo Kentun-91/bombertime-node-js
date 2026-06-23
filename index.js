@@ -332,7 +332,8 @@ io.on('connection', (socket) => {
                     direction: 'bottom',
                     activePlayerIndex: 1,
                     dead: false,
-                    hasShield: false
+                    hasShield: false,
+                    lastBombTime: 0
                 };
                 spawnIndex++;
             });
@@ -424,7 +425,8 @@ io.on('connection', (socket) => {
                 id: socket.id,
                 name: playerName || `Joueur ${socket.id.substring(0,4)}`,
                 team: assignedTeam,
-                playerNumber: teamPlayerIndex
+                playerNumber: teamPlayerIndex,
+                hasDefused: false
             };
             
             room.teams[assignedTeam].push(newPlayer);
@@ -531,24 +533,40 @@ io.on('connection', (socket) => {
         if (!teamEntity || teamEntity.dead || teamEntity.activePlayerIndex !== player.playerNumber) return;
 
         if (type === 'bomb') {
-            // Poser une bombe (max 1 par case)
-            const exists = room.gameState.bombs.some(b => b.x === teamEntity.x && b.y === teamEntity.y);
-            if (!exists) {
-                room.gameState.bombs.push({
-                    x: teamEntity.x,
-                    y: teamEntity.y,
-                    teamId: player.team,
-                    placedAt: Date.now()
-                });
+            const now = Date.now();
+            if (now - teamEntity.lastBombTime >= 5000) {
+                // Poser une bombe (max 1 par case)
+                const exists = room.gameState.bombs.some(b => b.x === teamEntity.x && b.y === teamEntity.y);
+                if (!exists) {
+                    teamEntity.lastBombTime = now;
+                    room.gameState.bombs.push({
+                        x: teamEntity.x,
+                        y: teamEntity.y,
+                        teamId: player.team,
+                        placedAt: now
+                    });
+                    
+                    // Notifier l'équipe du cooldown
+                    room.players.forEach(p => {
+                        if (p.team === player.team) {
+                            io.to(p.id).emit('cooldown', { type: 'bomb', duration: 5000 });
+                        }
+                    });
+                }
             }
         } else if (type === 'defuse') {
-            // Désamorcer une bombe sur la case ou à une case de distance
-            const bombIndex = room.gameState.bombs.findIndex(b => 
-                (Math.abs(b.x - teamEntity.x) <= 1 && b.y === teamEntity.y) ||
-                (Math.abs(b.y - teamEntity.y) <= 1 && b.x === teamEntity.x)
-            );
-            if (bombIndex !== -1) {
-                room.gameState.bombs.splice(bombIndex, 1);
+            if (!player.hasDefused) {
+                // Désamorcer une bombe sur la case ou à une case de distance
+                const bombIndex = room.gameState.bombs.findIndex(b => 
+                    (Math.abs(b.x - teamEntity.x) <= 1 && b.y === teamEntity.y) ||
+                    (Math.abs(b.y - teamEntity.y) <= 1 && b.x === teamEntity.x)
+                );
+                if (bombIndex !== -1) {
+                    room.gameState.bombs.splice(bombIndex, 1);
+                    player.hasDefused = true;
+                    // Notifier le joueur
+                    io.to(player.id).emit('actionConsumed', { type: 'defuse' });
+                }
             }
         }
     });
