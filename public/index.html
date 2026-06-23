@@ -157,6 +157,9 @@
             fond2: new Image(),
             mur: new Image(),
             bouclier: new Image(),
+            donuts1: new Image(),
+            donuts2: new Image(),
+            donuts3: new Image(),
             destruction: [],
             perso: { bottom: [], top: [], left: [], right: [], death: [] }
         };
@@ -165,6 +168,9 @@
         assets.fond2.src = '/asset/fond2.png';
         assets.mur.src = '/asset/mur-indestructible.png';
         assets.bouclier.src = '/asset/bouclier.png';
+        assets.donuts1.src = '/asset/donuts1.png';
+        assets.donuts2.src = '/asset/donuts2.png';
+        assets.donuts3.src = '/asset/donuts3.png';
         
         for (let i = 0; i <= 5; i++) {
             const img = new Image();
@@ -318,15 +324,26 @@
             state.items.forEach(i => {
                 if (i.type === 'shield' && assets.bouclier.complete) {
                     ctx.drawImage(assets.bouclier, offsetX + i.x * TILE_SIZE + 2, offsetY + i.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                } else if (i.type.startsWith('donuts') && assets[i.type] && assets[i.type].complete) {
+                    ctx.drawImage(assets[i.type], offsetX + i.x * TILE_SIZE + 2, offsetY + i.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
                 } else {
                     if (i.type === 'shield') {
                         ctx.fillStyle = '#4ecdc4'; // Bouclier (cyan)
+                    } else if (i.type.startsWith('donuts')) {
+                        ctx.fillStyle = i.type === 'donuts1' ? '#ff69b4' : (i.type === 'donuts2' ? '#00bfff' : '#ffd700'); // Fallbacks
                     } else if (i.type === 'portal') {
                         ctx.fillStyle = '#9b59b6'; // Portail (violet)
                     }
                     ctx.beginPath();
                     ctx.arc(offsetX + i.x * TILE_SIZE + TILE_SIZE/2, offsetY + i.y * TILE_SIZE + TILE_SIZE/2, TILE_SIZE/3, 0, Math.PI*2);
                     ctx.fill();
+                    
+                    if (i.type.startsWith('donuts')) {
+                        ctx.fillStyle = '#e3c498'; // Trou du donut
+                        ctx.beginPath();
+                        ctx.arc(offsetX + i.x * TILE_SIZE + TILE_SIZE/2, offsetY + i.y * TILE_SIZE + TILE_SIZE/2, TILE_SIZE/6, 0, Math.PI*2);
+                        ctx.fill();
+                    }
                 }
             });
 

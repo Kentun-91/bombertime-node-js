@@ -108,10 +108,29 @@ function triggerExplosion(room, cx, cy) {
                 room.gameState.destroyingBlocks.push({ x: nx, y: ny, time: Date.now() });
                 // 20% de chance d'apparition d'un item
                 if (Math.random() < 0.2) {
-                    room.gameState.items.push({
-                        x: nx, y: ny,
-                        type: Math.random() < 0.5 ? 'shield' : 'portal'
-                    });
+                    if (Math.random() < 0.5) {
+                        room.gameState.items.push({ x: nx, y: ny, type: 'shield' });
+                    } else {
+                        const donutType = Math.floor(Math.random() * 3) + 1;
+                        const pairId = Date.now().toString() + Math.random().toString();
+                        
+                        room.gameState.items.push({ x: nx, y: ny, type: `donuts${donutType}`, pairId: pairId });
+                        
+                        const emptyCells = [];
+                        for (let y = 0; y < room.gameState.height; y++) {
+                            for (let x = 0; x < room.gameState.width; x++) {
+                                if (room.gameState.grid[y][x] === TILE_EMPTY) {
+                                    const hasItem = room.gameState.items.some(i => i.x === x && i.y === y);
+                                    if (!hasItem && (x !== nx || y !== ny)) emptyCells.push({x, y});
+                                }
+                            }
+                        }
+                        
+                        if (emptyCells.length > 0) {
+                            const dest = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                            room.gameState.items.push({ x: dest.x, y: dest.y, type: `donuts${donutType}`, pairId: pairId });
+                        }
+                    }
                 }
                 break; // Stoppe l'explosion dans cette direction
             }
@@ -445,21 +464,18 @@ io.on('connection', (socket) => {
                         const itemIndex = room.gameState.items.findIndex(i => i.x === newX && i.y === newY);
                         if (itemIndex !== -1) {
                             const item = room.gameState.items[itemIndex];
-                            room.gameState.items.splice(itemIndex, 1);
+                            
                             if (item.type === 'shield') {
+                                room.gameState.items.splice(itemIndex, 1);
                                 teamEntity.hasShield = true;
-                            } else if (item.type === 'portal') {
-                                // TP aléatoire sur une case vide
-                                const emptyCells = [];
-                                for (let y = 0; y < room.gameState.height; y++) {
-                                    for (let x = 0; x < room.gameState.width; x++) {
-                                        if (room.gameState.grid[y][x] === TILE_EMPTY) emptyCells.push({x, y});
-                                    }
-                                }
-                                if (emptyCells.length > 0) {
-                                    const dest = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-                                    teamEntity.x = dest.x;
-                                    teamEntity.y = dest.y;
+                            } else if (item.type.startsWith('donuts')) {
+                                const otherItem = room.gameState.items.find(i => i.pairId === item.pairId && i !== item);
+                                
+                                room.gameState.items = room.gameState.items.filter(i => i.pairId !== item.pairId);
+                                
+                                if (otherItem) {
+                                    teamEntity.x = otherItem.x;
+                                    teamEntity.y = otherItem.y;
                                 }
                             }
                         }
