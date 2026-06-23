@@ -376,14 +376,66 @@
 
             // Dessiner les explosions
             state.explosions.forEach(exp => {
-                ctx.fillStyle = 'rgba(216, 27, 96, 0.7)'; // Rouge/Rose explosion
                 exp.cells.forEach(cell => {
-                    ctx.fillRect(offsetX + cell.x * TILE_SIZE, offsetY + cell.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    const px = offsetX + cell.x * TILE_SIZE;
+                    const py = offsetY + cell.y * TILE_SIZE;
+                    
+                    const isDestroying = state.destroyingBlocks && state.destroyingBlocks.some(b => b.x === cell.x && b.y === cell.y);
+                    
+                    if (!isDestroying) {
+                        // Dessiner un "splat" de gâteau
+                        // Base crème
+                        ctx.fillStyle = 'rgba(255, 236, 179, 0.9)';
+                        ctx.beginPath();
+                        ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, TILE_SIZE/2.2, 0, Math.PI*2);
+                        ctx.fill();
+                        
+                        // Tâches roses (glaçage)
+                        ctx.fillStyle = 'rgba(255, 105, 180, 0.9)';
+                        ctx.beginPath();
+                        ctx.arc(px + TILE_SIZE/3, py + TILE_SIZE/3, TILE_SIZE/4, 0, Math.PI*2);
+                        ctx.arc(px + TILE_SIZE*2/3, py + TILE_SIZE*2/3, TILE_SIZE/4, 0, Math.PI*2);
+                        ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE*2/3, TILE_SIZE/5, 0, Math.PI*2);
+                        ctx.fill();
+
+                        // Confettis
+                        ctx.fillStyle = '#00bfff';
+                        ctx.fillRect(px + TILE_SIZE/4, py + TILE_SIZE/2, 4, 4);
+                        ctx.fillRect(px + TILE_SIZE*3/4, py + TILE_SIZE*3/4, 4, 4);
+                        ctx.fillStyle = '#ffd700';
+                        ctx.fillRect(px + TILE_SIZE*3/4, py + TILE_SIZE/4, 4, 4);
+                        ctx.fillRect(px + TILE_SIZE/2, py + TILE_SIZE/4, 4, 4);
+                    } else {
+                        // Très peu d'explosion sur les blocs détruits (juste quelques confettis pour voir la brique se casser)
+                        ctx.fillStyle = 'rgba(255, 105, 180, 0.6)';
+                        ctx.beginPath();
+                        ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, TILE_SIZE/8, 0, Math.PI*2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = '#00bfff';
+                        ctx.fillRect(px + TILE_SIZE/3, py + TILE_SIZE/3, 3, 3);
+                        ctx.fillStyle = '#ffd700';
+                        ctx.fillRect(px + TILE_SIZE*2/3, py + TILE_SIZE*2/3, 3, 3);
+                    }
                 });
             });
             
             // Dessiner les entités (les P'tits Biscuits des équipes)
+            const dynamicColors = [
+                'rgba(255, 255, 255, 0)', // Base skin (aucune teinte)
+                'rgba(255, 0, 0, 0.4)',
+                'rgba(0, 0, 255, 0.4)',
+                'rgba(0, 255, 0, 0.4)',
+                'rgba(255, 255, 0, 0.4)',
+                'rgba(255, 165, 0, 0.4)',
+                'rgba(128, 0, 128, 0.4)',
+                'rgba(0, 255, 255, 0.4)'
+            ];
+            const sortedTeams = Object.keys(state.entities).sort();
+
             for (const teamId in state.entities) {
+                const teamIndex = sortedTeams.indexOf(teamId);
+                const currentColor = dynamicColors[teamIndex % dynamicColors.length];
                 const entity = state.entities[teamId];
                 const frameIndex = updateEntityAnim(teamId, entity);
                 
@@ -412,7 +464,7 @@
                         
                         // Appliquer la teinte
                         tintCtx.globalCompositeOperation = 'source-atop';
-                        tintCtx.fillStyle = teamColors[teamId] || 'rgba(255,255,255,0)';
+                        tintCtx.fillStyle = currentColor;
                         tintCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
                         
                         // Réinitialiser le mode
