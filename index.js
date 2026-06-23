@@ -18,18 +18,42 @@ const TILE_EMPTY = 0;
 const TILE_WALL = 1;
 const TILE_BLOCK = 2;
 
-function getSpawns(width, height) {
-    return [
-        {x: 1, y: 1}, {x: width - 2, y: 1},
-        {x: 1, y: height - 2}, {x: width - 2, y: height - 2},
-        {x: Math.floor(width / 2), y: 1},
-        {x: Math.floor(width / 2), y: height - 2},
-        {x: 1, y: Math.floor(height / 2)},
-        {x: width - 2, y: Math.floor(height / 2)}
-    ];
+function getRandomSafeSpawns(width, height, numTeams) {
+    const spawns = [];
+    const minDistance = 5; 
+    let attempts = 0;
+
+    while (spawns.length < numTeams && attempts < 1000) {
+        // Coordonnées impaires pour éviter les piliers
+        const x = Math.floor(Math.random() * ((width - 2) / 2)) * 2 + 1;
+        const y = Math.floor(Math.random() * ((height - 2) / 2)) * 2 + 1;
+        
+        let safe = true;
+        for (const s of spawns) {
+            const dist = Math.abs(s.x - x) + Math.abs(s.y - y);
+            if (dist < minDistance) {
+                safe = false;
+                break;
+            }
+        }
+        
+        if (safe) {
+            spawns.push({x, y});
+        }
+        attempts++;
+    }
+    
+    // Fallback si pas assez de place
+    while(spawns.length < numTeams) {
+        const x = Math.floor(Math.random() * ((width - 2) / 2)) * 2 + 1;
+        const y = Math.floor(Math.random() * ((height - 2) / 2)) * 2 + 1;
+        spawns.push({x, y});
+    }
+    
+    return spawns;
 }
 
-function generateMap(width, height, numTeams) {
+function generateMap(width, height, spawns) {
     const grid = [];
     for (let y = 0; y < height; y++) {
         const row = [];
@@ -51,19 +75,15 @@ function generateMap(width, height, numTeams) {
     }
     
     // Dégager les zones de spawn
-    const spawns = getSpawns(width, height);
-    const spawnsToClear = Math.max(numTeams, 4); // Au moins les 4 coins
-    for (let i = 0; i < spawnsToClear; i++) {
-        const spawn = spawns[i % spawns.length];
-        for (let dy = -2; dy <= 2; dy++) {
-            for (let dx = -2; dx <= 2; dx++) {
+    for (let i = 0; i < spawns.length; i++) {
+        const spawn = spawns[i];
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
                 const nx = spawn.x + dx;
                 const ny = spawn.y + dy;
                 if (nx > 0 && nx < width - 1 && ny > 0 && ny < height - 1) {
-                    if (Math.abs(dx) + Math.abs(dy) <= 2) {
-                        if (grid[ny][nx] !== TILE_WALL) {
-                             grid[ny][nx] = TILE_EMPTY;
-                        }
+                    if (grid[ny][nx] !== TILE_WALL) {
+                         grid[ny][nx] = TILE_EMPTY;
                     }
                 }
             }
@@ -177,9 +197,21 @@ function checkWinCondition(room) {
 
 function gameTick(roomCode) {
     const room = lobbies[roomCode];
-    if (!room || room.gameState.status !== 'playing') return;
+    if (!room || (room.gameState.status !== 'playing' && room.gameState.status !== 'starting')) return;
     
     const now = Date.now();
+    
+    if (room.gameState.status === 'starting') {
+        const remaining = Math.ceil((room.gameState.countdownEndTime - now) / 1000);
+        if (remaining <= 0) {
+            room.gameState.status = 'playing';
+            room.lastSwitchTime = now;
+        } else {
+            room.gameState.countdown = remaining;
+        }
+        io.to(room.screenId).emit('gameState', room.gameState);
+        return;
+    }
     
     // Nettoyage des explosions obsolètes (affichage de 500ms)
     room.gameState.explosions = room.gameState.explosions.filter(exp => now - exp.time < 500);
@@ -271,14 +303,18 @@ io.on('connection', (socket) => {
             const numTeams = Object.keys(room.teams).length;
             if (numTeams === 0) return; // Ne pas lancer sans joueur
 
-            const size = 11 + (numTeams * 4);
+            const size = Math.min(11 + (numTeams * 4), 31);
             const width = size;
             const height = size;
 
-            room.gameState.status = 'playing';
+            const spawns = getRandomSafeSpawns(width, height, numTeams);
+
+            room.gameState.status = 'starting';
+            room.gameState.countdown = 10;
+            room.gameState.countdownEndTime = Date.now() + 10000;
             room.gameState.width = width;
             room.gameState.height = height;
-            room.gameState.grid = generateMap(width, height, numTeams);
+            room.gameState.grid = generateMap(width, height, spawns);
             room.gameState.bombs = [];
             room.gameState.items = [];
             room.gameState.explosions = [];
@@ -286,8 +322,6 @@ io.on('connection', (socket) => {
             room.gameState.winner = null;
             
             // Initialisation de la position des équipes (1 perso par équipe)
-            const spawns = getSpawns(width, height);
-            
             let spawnIndex = 0;
             Object.keys(room.teams).forEach((teamId) => {
                 const spawn = spawns[spawnIndex % spawns.length];
