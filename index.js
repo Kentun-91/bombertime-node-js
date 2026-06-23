@@ -206,11 +206,71 @@ function gameTick(roomCode) {
         if (remaining <= 0) {
             room.gameState.status = 'playing';
             room.lastSwitchTime = now;
+            room.gameStartTime = now;
         } else {
             room.gameState.countdown = remaining;
         }
         io.to(room.screenId).emit('gameState', room.gameState);
         return;
+    }
+    
+    // Calculate timers for HUD
+    const playingTime = now - room.gameStartTime;
+    const TIME_BEFORE_SHRINK = 60000; // 60 secondes
+    
+    room.gameState.timeToSwitch = Math.max(0, Math.ceil((15000 - (now - room.lastSwitchTime)) / 1000));
+    
+    if (playingTime < TIME_BEFORE_SHRINK) {
+        room.gameState.timeToShrink = Math.max(0, Math.ceil((TIME_BEFORE_SHRINK - playingTime) / 1000));
+    } else {
+        room.gameState.timeToShrink = 0;
+        const s = room.gameState.shrink;
+        
+        if (!s.active) {
+            s.active = true;
+            s.nextDropTime = now;
+        }
+
+        if (now >= s.nextDropTime) {
+            if (s.minX <= s.maxX && s.minY <= s.maxY) {
+                // Poser un mur indestructible
+                room.gameState.grid[s.y][s.x] = TILE_WALL;
+                
+                // Tuer les joueurs sur cette case
+                Object.keys(room.gameState.entities).forEach(teamId => {
+                    const entity = room.gameState.entities[teamId];
+                    if (!entity.dead && entity.x === s.x && entity.y === s.y) {
+                        entity.dead = true;
+                    }
+                });
+                
+                // Détruire objets et bombes
+                room.gameState.bombs = room.gameState.bombs.filter(b => b.x !== s.x || b.y !== s.y);
+                room.gameState.items = room.gameState.items.filter(i => i.x !== s.x || i.y !== s.y);
+
+                // Calculer la prochaine case de la spirale
+                let nx = s.x + s.dx;
+                let ny = s.y + s.dy;
+
+                if (s.dx === 1 && nx > s.maxX) {
+                    s.dx = 0; s.dy = 1; s.minY++; // Ligne du haut finie
+                    nx = s.x; ny = s.y + 1;
+                } else if (s.dy === 1 && ny > s.maxY) {
+                    s.dx = -1; s.dy = 0; s.maxX--; // Colonne droite finie
+                    nx = s.x - 1; ny = s.y;
+                } else if (s.dx === -1 && nx < s.minX) {
+                    s.dx = 0; s.dy = -1; s.maxY--; // Ligne du bas finie
+                    nx = s.x; ny = s.y - 1;
+                } else if (s.dy === -1 && ny < s.minY) {
+                    s.dx = 1; s.dy = 0; s.minX++; // Colonne gauche finie
+                    nx = s.x + 1; ny = s.y;
+                }
+
+                s.x = nx;
+                s.y = ny;
+                s.nextDropTime = now + 500; // 1 bloc toutes les 0.5s
+            }
+        }
     }
     
     // Nettoyage des explosions obsolètes (affichage de 500ms)
@@ -312,6 +372,20 @@ io.on('connection', (socket) => {
             room.gameState.status = 'starting';
             room.gameState.countdown = 10;
             room.gameState.countdownEndTime = Date.now() + 10000;
+            room.gameState.timeToShrink = 60;
+            room.gameState.timeToSwitch = 15;
+            room.gameState.shrink = {
+                active: false,
+                nextDropTime: 0,
+                x: 1,
+                y: 1,
+                dx: 1,
+                dy: 0,
+                minX: 1,
+                maxX: width - 2,
+                minY: 1,
+                maxY: height - 2
+            };
             room.gameState.width = width;
             room.gameState.height = height;
             room.gameState.grid = generateMap(width, height, spawns);
