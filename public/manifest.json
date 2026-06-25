@@ -1,0 +1,16 @@
+{
+  "name": "BomberTime Mobile",
+  "short_name": "BomberTime",
+  "description": "Manette mobile pour BomberTime",
+  "start_url": "./mobile.html",
+  "display": "fullscreen",
+  "background_color": "#fce4ec",
+  "theme_color": "#d81b60",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

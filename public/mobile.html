@@ -2,11 +2,15 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#d81b60">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BomberTime - Manette</title>
     <style>
-        body { font-family: 'Arial', sans-serif; background-color: #fce4ec; text-align: center; margin: 0; padding: 20px; color: #5c3a21; }
-        h1 { color: #d81b60; font-size: 2.5em; }
+        body { font-family: 'Arial', sans-serif; background-color: #fce4ec; text-align: center; margin: 0; padding: 20px; color: #5c3a21; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+        h1 { color: #d81b60; font-size: 2.5em; margin: 10px 0; }
         
         #join-screen { margin-top: 10vh; }
         input { font-size: 1.5em; text-align: center; text-transform: uppercase; width: 80%; padding: 15px; margin: 10px 0; border-radius: 15px; border: 3px solid #ff6b6b; box-sizing: border-box; }
@@ -24,11 +28,12 @@
         .waiting-text { font-size: 1.2em; color: #888; margin-top: 20px; font-style: italic; transition: color 0.3s; }
 
         /* Styles de la manette */
-        #controls { display: flex; justify-content: space-around; align-items: center; margin-top: 30px; opacity: 1; transition: opacity 0.3s, filter 0.3s; }
+        #controller-screen { touch-action: none; overflow: hidden; } /* Prévenir le scroll pendant le jeu */
+        #controls { opacity: 1; transition: opacity 0.3s, filter 0.3s; display: flex; align-items: center; justify-content: space-around; margin-top: 10px; width: 100%; box-sizing: border-box; }
         #controls.disabled { opacity: 0.4; filter: grayscale(100%); pointer-events: none; }
         
         .dpad { display: flex; flex-direction: column; align-items: center; }
-        .dpad-row { display: flex; gap: 50px; margin: 10px 0; }
+        .dpad-row { display: flex; gap: 40px; margin: 10px 0; }
         .dir-btn { width: 70px; height: 70px; font-size: 2em; border-radius: 15px; background: #5c3a21; color: white; border: 3px solid #f9a826; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #3a2211; }
         .dir-btn:active { background: #f9a826; color: #5c3a21; transform: translateY(4px); box-shadow: 0 0 0 #3a2211; }
         
@@ -39,9 +44,32 @@
         .act-btn.defuse:active { background: #2b9a92; box-shadow: 0 0 0 #1f706a; }
         .act-btn.on-cooldown { background: #888; border-color: #555; pointer-events: none; font-size: 1.5em; font-weight: bold; }
         .act-btn.consumed { background: #555; border-color: #333; pointer-events: none; opacity: 0.5; }
+
+        @media (orientation: portrait) {
+            #controls { flex-direction: column; gap: 50px; margin-top: 30px; }
+            .dpad-row { gap: 60px; margin: 15px 0; }
+            .dir-btn { width: 85px; height: 85px; font-size: 2.5em; }
+            .actions { flex-direction: row; gap: 40px; }
+            .act-btn { width: 95px; height: 95px; font-size: 3em; }
+        }
+        @media (orientation: landscape) {
+            #controls { flex-direction: row; margin-top: 20px; padding: 0 5vw; }
+            .dpad-row { gap: 40px; }
+            .dir-btn { width: 75px; height: 75px; }
+            .actions { flex-direction: column; gap: 25px; }
+            .act-btn { width: 85px; height: 85px; }
+            .team-info { display: flex; justify-content: space-around; align-items: center; padding: 10px; margin: 5px auto; width: 60%; }
+            #controller-screen h1 { margin: 5px 0; font-size: 1.8em; }
+            .waiting-text { margin-top: 10px; }
+        }
     </style>
 </head>
 <body>
+    <div id="install-banner" style="display: none; background: #ffb4a2; color: #5c3a21; padding: 15px; border-radius: 15px; margin-bottom: 20px; font-weight: bold; border: 2px solid #ff6b6b; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <p style="margin: 0 0 10px 0;">Installez l'app pour jouer en plein écran et sans barre d'URL !</p>
+        <button onclick="installPWA()" style="background: #d81b60; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 80%; font-size: 1.2em;">Installer</button>
+    </div>
+
     <div id="join-screen">
         <h1>BomberTime</h1>
         <p>Rejoignez la partie en cours</p>
@@ -94,6 +122,32 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // PWA Installation & Service Worker
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-banner').style.display = 'block';
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('install-banner').style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js');
+            });
+        }
+
         const socket = io();
         let currentRoomCode = null;
 
