@@ -9,18 +9,20 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BomberTime - Manette</title>
     <style>
-        body { font-family: 'Arial', sans-serif; background-color: #fce4ec; text-align: center; margin: 0; padding: 20px; color: #5c3a21; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+        body { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; background-color: #fce4ec; text-align: center; margin: 0; padding: 0; color: #5c3a21; user-select: none; -webkit-user-select: none; }
         h1 { color: #d81b60; font-size: 2.5em; margin: 10px 0; }
         
-        #join-screen { margin-top: 10vh; }
+        .scrollable-screen { width: 100%; height: 100%; overflow-y: auto; touch-action: pan-y; padding: 20px; box-sizing: border-box; }
+        
+        #join-screen { padding-top: 10vh; }
         input { font-size: 1.5em; text-align: center; text-transform: uppercase; width: 80%; padding: 15px; margin: 10px 0; border-radius: 15px; border: 3px solid #ff6b6b; box-sizing: border-box; }
         button.btn-join { font-size: 1.5em; background: #ff6b6b; color: white; border: none; padding: 15px 40px; border-radius: 15px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 80%; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
         button.btn-join:active { transform: translateY(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        #team-selection-screen { display: none; margin-top: 10vh; }
+        #team-selection-screen { display: none; padding-top: 5vh; }
         .team-btn { font-size: 1.2em; background: #fff; color: #5c3a21; border: 3px solid #ff6b6b; padding: 10px 20px; border-radius: 10px; margin: 5px; cursor: pointer; width: 80%; }
         .team-btn:active { background: #ffb4a2; }
         
-        #controller-screen { display: none; margin-top: 5vh; }
+        #waiting-screen { display: none; padding-top: 10vh; }
         .team-info { background: white; border: 3px solid #ff6b6b; border-radius: 15px; padding: 15px; margin: 10px auto; width: 80%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .team-info h2 { margin: 0; color: #ff6b6b; font-size: 1.5em; }
         .team-info p { font-size: 1.2em; margin: 5px 0 0 0; font-weight: bold; }
@@ -28,7 +30,7 @@
         .waiting-text { font-size: 1.2em; color: #888; margin-top: 20px; font-style: italic; transition: color 0.3s; }
 
         /* Styles de la manette */
-        #controller-screen { touch-action: none; overflow: hidden; } /* Prévenir le scroll pendant le jeu */
+        #controller-screen { width: 100%; height: 100%; display: none; flex-direction: column; justify-content: center; touch-action: none; overflow: hidden; box-sizing: border-box; padding: 10px; }
         #controls { opacity: 1; transition: opacity 0.3s, filter 0.3s; display: flex; align-items: center; justify-content: space-around; margin-top: 10px; width: 100%; box-sizing: border-box; }
         #controls.disabled { opacity: 0.4; filter: grayscale(100%); pointer-events: none; }
         
@@ -53,24 +55,27 @@
             .act-btn { width: 95px; height: 95px; font-size: 3em; }
         }
         @media (orientation: landscape) {
-            #controls { flex-direction: row; margin-top: 20px; padding: 0 5vw; }
-            .dpad-row { gap: 40px; }
-            .dir-btn { width: 75px; height: 75px; }
-            .actions { flex-direction: column; gap: 25px; }
-            .act-btn { width: 85px; height: 85px; }
-            .team-info { display: flex; justify-content: space-around; align-items: center; padding: 10px; margin: 5px auto; width: 60%; }
-            #controller-screen h1 { margin: 5px 0; font-size: 1.8em; }
-            .waiting-text { margin-top: 10px; }
+            #controller-screen { padding: 0; }
+            #controls { flex-direction: row; margin-top: 0; padding: 0 10vw; flex: 1; align-items: center; justify-content: space-between; }
+            .dpad-row { gap: 30px; margin: 5px 0; }
+            .dir-btn { width: 14vh; height: 14vh; min-width: 60px; min-height: 60px; font-size: 2em; }
+            .actions { flex-direction: row; gap: 30px; }
+            .act-btn { width: 16vh; height: 16vh; min-width: 70px; min-height: 70px; font-size: 2.5em; }
+            .team-info { display: flex; justify-content: space-around; align-items: center; padding: 5px; margin: 0 auto; width: 80%; }
+            #controller-screen h1 { display: none; }
+            .waiting-text { margin-top: 5px; }
         }
     </style>
 </head>
 <body>
-    <div id="install-banner" style="display: none; background: #ffb4a2; color: #5c3a21; padding: 15px; border-radius: 15px; margin-bottom: 20px; font-weight: bold; border: 2px solid #ff6b6b; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <p style="margin: 0 0 10px 0;">Installez l'app pour jouer en plein écran et sans barre d'URL !</p>
-        <button onclick="installPWA()" style="background: #d81b60; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 80%; font-size: 1.2em;">Installer</button>
+    <div id="install-overlay" style="display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #fce4ec; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
+        <h1 style="color: #d81b60; font-size: 2.5em; margin-bottom: 20px;">BomberTime</h1>
+        <p style="font-size: 1.5em; font-weight: bold; margin-bottom: 30px; text-align: center;">L'application parfaite pour jouer sans lag et en plein écran !</p>
+        <button onclick="installPWA()" style="background: #d81b60; color: white; border: none; padding: 20px; border-radius: 15px; font-weight: bold; font-size: 1.2em; cursor: pointer; width: 90%; margin-bottom: 20px; box-shadow: 0 4px 0 #a01140;">INSTALLER L'APP (Recommandé)</button>
+        <button onclick="skipInstall()" style="background: transparent; color: #ff6b6b; border: 2px solid #ff6b6b; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 1.1em; cursor: pointer; width: 90%;">Continuer dans le navigateur</button>
     </div>
 
-    <div id="join-screen">
+    <div id="join-screen" class="scrollable-screen">
         <h1>BomberTime</h1>
         <p>Rejoignez la partie en cours</p>
         <input type="text" id="roomInput" placeholder="CODE SALLE" maxlength="4">
@@ -79,7 +84,7 @@
         <button class="btn-join" onclick="fetchRoom()">SUIVANT</button>
     </div>
 
-    <div id="team-selection-screen">
+    <div id="team-selection-screen" class="scrollable-screen">
         <h1>Choix d'Équipe</h1>
         <div id="teamsList"></div>
         <p style="margin-top:20px;">Ou créer une nouvelle équipe :</p>
@@ -87,7 +92,7 @@
         <button class="btn-join" onclick="joinWithNewTeam()">CRÉER & REJOINDRE</button>
     </div>
 
-    <div id="waiting-screen" style="display: none; margin-top: 10vh;">
+    <div id="waiting-screen" class="scrollable-screen">
         <h1>BomberTime</h1>
         <div class="team-info">
             <h2>ÉQUIPE <span id="waitTeamNumber"></span></h2>
@@ -127,16 +132,20 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            document.getElementById('install-banner').style.display = 'block';
+            if (currentScreen === 'join-screen') {
+                document.getElementById('install-overlay').style.display = 'flex';
+            }
         });
+
+        function skipInstall() {
+            document.getElementById('install-overlay').style.display = 'none';
+        }
 
         function installPWA() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        document.getElementById('install-banner').style.display = 'none';
-                    }
+                    document.getElementById('install-overlay').style.display = 'none';
                     deferredPrompt = null;
                 });
             }
@@ -175,9 +184,12 @@
 
         function showScreen(id) {
             ['join-screen', 'team-selection-screen', 'waiting-screen', 'controller-screen'].forEach(s => {
-                document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+                document.getElementById(s).style.display = (s === id) ? (s === 'controller-screen' ? 'flex' : 'block') : 'none';
             });
             currentScreen = id;
+            if (id !== 'join-screen') {
+                document.getElementById('install-overlay').style.display = 'none';
+            }
         }
 
         socket.on('roomInfo', (data) => {

@@ -647,7 +647,36 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Utilisateur déconnecté:', socket.id);
-        // Gestion de la déconnexion (à affiner dans les prochaines étapes)
+        
+        for (const roomCode in lobbies) {
+            const room = lobbies[roomCode];
+            
+            const playerIndex = room.players.findIndex(p => p.id === socket.id);
+            if (playerIndex !== -1) {
+                const player = room.players[playerIndex];
+                room.players.splice(playerIndex, 1);
+                
+                if (room.teams[player.team]) {
+                    room.teams[player.team] = room.teams[player.team].filter(p => p.id !== socket.id);
+                    if (room.teams[player.team].length === 0 && (room.gameState.status === 'lobby' || room.gameState.status === 'gameover')) {
+                        delete room.teams[player.team];
+                    }
+                }
+                
+                if (room.gameState.status === 'lobby' || room.gameState.status === 'gameover') {
+                    const teamInfos = [];
+                    for (const teamId in room.teams) {
+                        teamInfos.push({
+                            name: teamId,
+                            count: room.teams[teamId].length,
+                            players: room.teams[teamId].map(p => p.name)
+                        });
+                    }
+                    io.to(roomCode).emit('roomInfo', { teams: teamInfos });
+                    io.to(room.screenId).emit('playerJoined', { players: room.players });
+                }
+            }
+        }
     });
 });
 
