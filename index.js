@@ -621,7 +621,8 @@ io.on('connection', (socket) => {
         if (type === 'bomb') {
             const now = Date.now();
             const playingTimeMs = now - room.gameStartTime;
-            const currentCooldown = Math.min(5000 + Math.floor(playingTimeMs / 10000) * 1000, 15000); // +1s toutes les 10s (max 15s)
+            const reductions = Math.floor(playingTimeMs / 15000); // 1 intervalle toutes les 15s
+            const currentCooldown = Math.max(5000 - (reductions * 1000), 1500); // Commence à 5s, baisse de 1s, min 1.5s
             
             if (now - teamEntity.lastBombTime >= currentCooldown) {
                 // Poser une bombe (max 1 par case)
