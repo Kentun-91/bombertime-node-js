@@ -30,18 +30,18 @@
         <div class="players-container" id="playersList"></div>
     </div>
 
-    <!-- Canvas pour le rendu du jeu -->
-    <canvas id="gameCanvas" style="display:none; position: absolute; top: 0; left: 0;"></canvas>
-    
     <!-- HUD en jeu -->
-    <div id="game-hud" style="display:none; position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(43, 29, 20, 0.85); padding: 10px 25px; border-radius: 20px; border: 3px solid #f9a826; gap: 40px; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-        <div style="font-size: 1.5em; font-weight: bold; color: #ffb4a2;">
+    <div id="game-hud" style="display:none; width: 100%; background: #5c3a21; padding: 10px 0; border-bottom: 4px solid #f9a826; justify-content: center; align-items: center; gap: 60px; font-family: 'Courier New', Courier, monospace; box-shadow: 0 6px 12px rgba(0,0,0,0.6); z-index: 10; position: relative;">
+        <div style="font-size: 1.8em; font-weight: bold; color: #ffb4a2; text-shadow: 2px 2px 0px #2b1d14; text-transform: uppercase;">
             🔁 Switch : <span id="hud-switch">15s</span>
         </div>
-        <div style="font-size: 1.5em; font-weight: bold; color: #4ecdc4;">
-            🌪️ Rétrécissement : <span id="hud-shrink">60s</span>
+        <div style="font-size: 1.8em; font-weight: bold; color: #4ecdc4; text-shadow: 2px 2px 0px #2b1d14; text-transform: uppercase;">
+            🌪️ Zone : <span id="hud-shrink">45s</span>
         </div>
     </div>
+
+    <!-- Canvas pour le rendu du jeu -->
+    <canvas id="gameCanvas" style="display:none; display: block; position: relative; margin: 0 auto;"></canvas>
     
     <!-- Écran de Game Over Overlay -->
     <div id="gameover-screen" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; flex-direction: column;">
@@ -137,8 +137,11 @@
         };
 
         function resizeCanvas(gridWidth, gridHeight) {
+            const hud = document.getElementById('game-hud');
+            const hudHeight = (hud.style.display !== 'none') ? hud.offsetHeight : 0;
+            
             canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.height = window.innerHeight - hudHeight;
             
             // Désactiver le lissage pour les assets pixel-art
             ctx.imageSmoothingEnabled = false;
@@ -205,8 +208,8 @@
         socket.on('gameStarted', () => {
             document.getElementById('lobby-screen').style.display = 'none';
             document.getElementById('gameover-screen').style.display = 'none';
-            canvas.style.display = 'block';
             document.getElementById('game-hud').style.display = 'flex';
+            canvas.style.display = 'block';
         });
 
         document.getElementById('btnRestart').addEventListener('click', () => {
@@ -247,9 +250,10 @@
             }
 
             if (state.width) {
-                if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
-                    resizeCanvas(state.width, state.height);
-                } else if (TILE_SIZE === 30 && state.width !== 31) {
+                const hud = document.getElementById('game-hud');
+                const hudHeight = (hud.style.display !== 'none') ? hud.offsetHeight : 0;
+                
+                if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight - hudHeight) {
                     resizeCanvas(state.width, state.height);
                 }
             }

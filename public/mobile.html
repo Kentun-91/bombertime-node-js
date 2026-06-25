@@ -34,13 +34,13 @@
         #controls { opacity: 1; transition: opacity 0.3s, filter 0.3s; display: flex; align-items: center; justify-content: space-around; margin-top: 10px; width: 100%; box-sizing: border-box; }
         #controls.disabled { opacity: 0.4; filter: grayscale(100%); pointer-events: none; }
         
-        .dpad { display: flex; flex-direction: column; align-items: center; }
-        .dpad-row { display: flex; gap: 40px; margin: 10px 0; }
-        .dir-btn { width: 70px; height: 70px; font-size: 2em; border-radius: 15px; background: #5c3a21; color: white; border: 3px solid #f9a826; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #3a2211; }
+        .dpad { display: flex; flex-direction: column; align-items: center; gap: 0; }
+        .dpad-row { display: flex; gap: 0; margin: 0; }
+        .dir-btn { width: 70px; height: 70px; font-size: 2em; border-radius: 15px; background: #5c3a21; color: white; border: 2px solid #f9a826; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #3a2211; margin: 2px; }
         .dir-btn:active { background: #f9a826; color: #5c3a21; transform: translateY(4px); box-shadow: 0 0 0 #3a2211; }
         
-        .actions { display: flex; flex-direction: column; gap: 30px; }
-        .act-btn { width: 80px; height: 80px; font-size: 2.5em; border-radius: 50%; background: #ff6b6b; color: white; border: 3px solid #d81b60; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #a01140; }
+        .actions { display: flex; flex-direction: column; gap: 10px; }
+        .act-btn { width: 80px; height: 80px; font-size: 2.5em; border-radius: 50%; background: #ff6b6b; color: white; border: 3px solid #d81b60; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #a01140; margin: 2px; }
         .act-btn:active { background: #d81b60; transform: translateY(4px); box-shadow: 0 0 0 #a01140; }
         .act-btn.defuse { background: #4ecdc4; border-color: #2b9a92; box-shadow: 0 4px 0 #1f706a; }
         .act-btn.defuse:active { background: #2b9a92; box-shadow: 0 0 0 #1f706a; }
@@ -48,19 +48,19 @@
         .act-btn.consumed { background: #555; border-color: #333; pointer-events: none; opacity: 0.5; }
 
         @media (orientation: portrait) {
-            #controls { flex-direction: column; gap: 50px; margin-top: 30px; }
-            .dpad-row { gap: 70px; margin: 15px 0; }
-            .dir-btn { width: 95px; height: 95px; font-size: 2.8em; }
-            .actions { flex-direction: row; gap: 50px; }
-            .act-btn { width: 110px; height: 110px; font-size: 3.5em; }
+            #controls { flex-direction: column; gap: 30px; margin-top: 20px; }
+            .dpad-row { gap: 0px; margin: 0; }
+            .dir-btn { width: 105px; height: 105px; font-size: 3.5em; }
+            .actions { flex-direction: row; gap: 10px; }
+            .act-btn { width: 120px; height: 120px; font-size: 4em; }
         }
         @media (orientation: landscape) {
             #controller-screen { padding: 0; justify-content: center; }
-            #controls { flex-direction: row; margin-top: 0; padding: 0 5vw; flex: 1; align-items: center; justify-content: space-between; }
-            .dpad-row { gap: 5px; margin: 5px 0; }
-            .dir-btn { width: 75px; height: 75px; font-size: 2.2em; min-width: auto; min-height: auto; }
-            .actions { flex-direction: row; gap: 15px; }
-            .act-btn { width: 95px; height: 95px; font-size: 2.8em; min-width: auto; min-height: auto; }
+            #controls { flex-direction: row; margin-top: 0; padding: 0 2vw; flex: 1; align-items: center; justify-content: space-between; }
+            .dpad-row { gap: 0px; margin: 0; }
+            .dir-btn { width: 85px; height: 85px; font-size: 2.8em; min-width: auto; min-height: auto; }
+            .actions { flex-direction: row; gap: 5px; }
+            .act-btn { width: 105px; height: 105px; font-size: 3.5em; min-width: auto; min-height: auto; }
             .team-info { display: flex; justify-content: center; gap: 15px; align-items: center; padding: 5px 15px; margin: 5px auto; width: fit-content; }
             .team-info h2, .team-info p { font-size: 1em; margin: 0; }
             #controller-screen h1 { display: none; }
@@ -371,20 +371,20 @@
                 const btn = document.getElementById('btn-bomb');
                 btn.classList.add('on-cooldown');
                 let remaining = data.duration / 1000;
-                btn.innerText = remaining + "s";
+                btn.innerText = remaining.toFixed(1) + "s";
                 
                 if (bombCooldownInterval) clearInterval(bombCooldownInterval);
                 
                 bombCooldownInterval = setInterval(() => {
-                    remaining--;
-                    if (remaining > 0) {
-                        btn.innerText = remaining + "s";
+                    remaining -= 0.1;
+                    if (remaining > 0.05) {
+                        btn.innerText = remaining.toFixed(1) + "s";
                     } else {
                         clearInterval(bombCooldownInterval);
                         btn.classList.remove('on-cooldown');
                         btn.innerText = "🎂";
                     }
-                }, 1000);
+                }, 100);
             }
         });
 
