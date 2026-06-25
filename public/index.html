@@ -53,11 +53,30 @@
         <button id="btnRestart" style="font-size: 1.5em; background: #ff6b6b; color: white; padding: 15px 30px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">Relancer la partie</button>
     </div>
 
+    <!-- Sons du jeu -->
+    <audio id="audio-lobby" loop preload="auto"><source src="/asset/lobby.ogg" type="audio/ogg"></audio>
+    <audio id="audio-bgm" loop preload="auto"><source src="/asset/bombertime-bg-music.mp3" type="audio/mpeg"></audio>
+    <audio id="audio-pickup" preload="auto"><source src="/asset/pickup.wav" type="audio/wav"></audio>
+    <audio id="audio-blow" preload="auto"><source src="/asset/blow.mp3" type="audio/mpeg"></audio>
+    <audio id="audio-explosion" preload="auto"><source src="/asset/explosion.mp3" type="audio/mpeg"></audio>
+    <audio id="audio-switch" preload="auto"><source src="/asset/switch.mp3" type="audio/mpeg"></audio>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const socket = io();
         let currentRoom = null;
+        let audioUnlocked = false;
+
+        // Débloquer l'audio au premier clic
+        document.body.addEventListener('click', () => {
+            if (!audioUnlocked) {
+                audioUnlocked = true;
+                if (document.getElementById('lobby-screen').style.display !== 'none') {
+                    document.getElementById('audio-lobby').play().catch(e => {});
+                }
+            }
+        });
 
         // Afficher l'URL brute au cas où
         document.getElementById('urlText').innerText = window.location.host;
@@ -81,6 +100,8 @@
                 colorLight : "#f5e6d3",
                 correctLevel : QRCode.CorrectLevel.M
             });
+            
+            document.getElementById('audio-lobby').play().catch(e => console.log('En attente de clic pour la musique du lobby'));
         });
 
         socket.on('playerJoined', (data) => {
@@ -217,6 +238,10 @@
             document.getElementById('lobby-screen').style.display = 'none';
             document.getElementById('gameover-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'flex';
+            
+            document.getElementById('audio-lobby').pause();
+            document.getElementById('audio-bgm').currentTime = 0;
+            document.getElementById('audio-bgm').play().catch(e => {});
         });
 
         document.getElementById('btnRestart').addEventListener('click', () => {
@@ -230,6 +255,23 @@
             document.getElementById('gameover-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'block';
+            
+            document.getElementById('audio-bgm').pause();
+            document.getElementById('audio-lobby').currentTime = 0;
+            document.getElementById('audio-lobby').play().catch(e => {});
+        });
+
+        socket.on('playSound', (soundId) => {
+            const audio = document.getElementById(`audio-${soundId}`);
+            if (audio) {
+                if (soundId === 'switch') {
+                    const bgm = document.getElementById('audio-bgm');
+                    bgm.volume = 0.2; // Baisser la musique pendant le switch
+                    setTimeout(() => bgm.volume = 1.0, 3000);
+                }
+                audio.currentTime = 0;
+                audio.play().catch(e => {});
+            }
         });
 
         socket.on('gameState', (state) => {

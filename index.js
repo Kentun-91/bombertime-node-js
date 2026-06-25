@@ -158,6 +158,7 @@ function triggerExplosion(room, cx, cy) {
     });
 
     room.gameState.explosions.push({ cells: explosionCells, time: Date.now() });
+    io.to(room.screenId).emit('playSound', 'explosion');
 }
 
 function checkExplosionHit(room, x, y) {
@@ -305,6 +306,7 @@ function gameTick(roomCode) {
     // Logique de switch toutes les 15 secondes
     if (now - room.lastSwitchTime >= 15000) {
         room.lastSwitchTime = now;
+        io.to(room.screenId).emit('playSound', 'switch');
         
         // Alterner le tour
         Object.keys(room.gameState.entities).forEach(teamId => {
@@ -599,6 +601,7 @@ io.on('connection', (socket) => {
                                     teamEntity.x = otherItem.x;
                                     teamEntity.y = otherItem.y;
                                 }
+                                io.to(room.screenId).emit('playSound', 'pickup');
                             }
                         }
                     }
@@ -642,6 +645,16 @@ io.on('connection', (socket) => {
                             io.to(p.id).emit('cooldown', { type: 'bomb', duration: currentCooldown });
                         }
                     });
+                }
+            }
+        } else if (type === 'blow') {
+            if (!teamEntity.hasShield) {
+                const blown = room.gameState.bombs.filter(b => b.team !== player.team);
+                if (blown.length > 0) {
+                    room.gameState.bombs = room.gameState.bombs.filter(b => b.team === player.team);
+                    io.to(room.screenId).emit('playSound', 'blow');
+                    io.to(player.id).emit('cooldown', { type: 'blow', duration: 10000 });
+                    teamEntity.lastBlowTime = now;
                 }
             }
         } else if (type === 'defuse') {
