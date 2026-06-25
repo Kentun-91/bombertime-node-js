@@ -658,8 +658,19 @@ io.on('connection', (socket) => {
                 
                 if (room.teams[player.team]) {
                     room.teams[player.team] = room.teams[player.team].filter(p => p.id !== socket.id);
-                    if (room.teams[player.team].length === 0 && (room.gameState.status === 'lobby' || room.gameState.status === 'gameover')) {
-                        delete room.teams[player.team];
+                    
+                    if (room.teams[player.team].length === 0) {
+                        if (room.gameState.status === 'lobby' || room.gameState.status === 'gameover') {
+                            delete room.teams[player.team];
+                        } else if (room.gameState.entities[player.team]) {
+                            // L'équipe entière a quitté en pleine partie
+                            room.gameState.entities[player.team].dead = true;
+                        }
+                    } else if (room.gameState.entities[player.team]) {
+                        // Il reste un joueur, on lui donne le contrôle permanent pour éviter le tour fantôme
+                        const remainingPlayer = room.teams[player.team][0];
+                        room.gameState.entities[player.team].activePlayerIndex = remainingPlayer.playerNumber;
+                        io.to(remainingPlayer.id).emit('turnUpdate', true);
                     }
                 }
                 
