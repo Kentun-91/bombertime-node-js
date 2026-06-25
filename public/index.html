@@ -571,9 +571,15 @@
 
             // --- Phase de démarrage ---
             if (state.status === 'starting') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // Écran beaucoup plus clair
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
+                // Ajout d'une ombre pour garder le texte bien lisible sur fond clair
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
                 ctx.fillStyle = 'white';
                 ctx.font = 'bold 100px Arial';
                 ctx.textAlign = 'center';
@@ -582,6 +588,12 @@
                 
                 ctx.font = 'bold 30px Arial';
                 ctx.fillText("Repérez votre personnage !", canvas.width/2, canvas.height/2 + 80);
+
+                // Réinitialiser l'ombre pour la suite du dessin
+                ctx.shadowColor = "transparent";
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
 
                 const pulse = (Date.now() % 1000) / 1000;
                 ctx.strokeStyle = `rgba(255, 255, 255, ${1 - pulse})`;
