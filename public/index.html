@@ -213,6 +213,7 @@
         }
 
         socket.on('gameStarted', () => {
+            document.querySelector('h1').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'none';
             document.getElementById('gameover-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'flex';
@@ -225,6 +226,7 @@
         });
 
         socket.on('resetLobby', () => {
+            document.querySelector('h1').style.display = 'block';
             document.getElementById('gameover-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'block';
@@ -385,32 +387,43 @@
 
             // Dessiner les explosions
             state.explosions.forEach(exp => {
+                if (exp.cells.length === 0) return;
+                const center = exp.cells[0]; // La première case est toujours le centre
+                
                 exp.cells.forEach(cell => {
                     const px = offsetX + cell.x * TILE_SIZE;
                     const py = offsetY + cell.y * TILE_SIZE;
                     
                     const isDestroying = state.destroyingBlocks && state.destroyingBlocks.some(b => b.x === cell.x && b.y === cell.y);
                     
-                    if (!isDestroying) {
-                        // Faisceau continu marron
-                        ctx.fillStyle = '#59361d';
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        
-                        // Paillettes roses
-                        ctx.fillStyle = '#dca4a4';
-                        ctx.fillRect(px + TILE_SIZE * 0.2, py + TILE_SIZE * 0.2, 4, 4);
-                        ctx.fillRect(px + TILE_SIZE * 0.8, py + TILE_SIZE * 0.5, 3, 3);
-                        ctx.fillRect(px + TILE_SIZE * 0.5, py + TILE_SIZE * 0.8, 4, 4);
-                        ctx.fillRect(px + TILE_SIZE * 0.3, py + TILE_SIZE * 0.7, 2, 2);
-                        ctx.fillRect(px + TILE_SIZE * 0.7, py + TILE_SIZE * 0.2, 3, 3);
-                    } else {
-                        // Explosion légèrement transparente sur les blocs en destruction
-                        ctx.fillStyle = 'rgba(89, 54, 29, 0.7)'; // #59361d transparent
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        
-                        ctx.fillStyle = '#dca4a4';
-                        ctx.fillRect(px + TILE_SIZE / 3, py + TILE_SIZE / 3, 3, 3);
-                        ctx.fillRect(px + TILE_SIZE * 0.6, py + TILE_SIZE * 0.6, 3, 3);
+                    ctx.fillStyle = isDestroying ? 'rgba(89, 54, 29, 0.7)' : '#59361d';
+                    
+                    // Calcul de la forme du faisceau pour ne pas remplir toute la case
+                    const thickness = TILE_SIZE * 0.6;
+                    const margin = (TILE_SIZE - thickness) / 2;
+                    
+                    if (cell.x === center.x && cell.y === center.y) {
+                        // Centre : dessine une croix (+ centrale)
+                        ctx.fillRect(px + margin, py, thickness, TILE_SIZE); // Barre verticale
+                        ctx.fillRect(px, py + margin, TILE_SIZE, thickness); // Barre horizontale
+                    } else if (cell.x === center.x) {
+                        // Bras vertical
+                        ctx.fillRect(px + margin, py, thickness, TILE_SIZE);
+                    } else if (cell.y === center.y) {
+                        // Bras horizontal
+                        ctx.fillRect(px, py + margin, TILE_SIZE, thickness);
+                    }
+                    
+                    // Paillettes roses #dca4a4
+                    ctx.fillStyle = isDestroying ? 'rgba(220, 164, 164, 0.6)' : '#dca4a4';
+                    const sparkleSize = TILE_SIZE * 0.15;
+                    
+                    if (cell.x === center.x || cell.y === center.y) {
+                        ctx.fillRect(px + TILE_SIZE * 0.3, py + TILE_SIZE * 0.4, sparkleSize, sparkleSize);
+                        ctx.fillRect(px + TILE_SIZE * 0.6, py + TILE_SIZE * 0.5, sparkleSize * 0.8, sparkleSize * 0.8);
+                        if (!isDestroying) {
+                            ctx.fillRect(px + TILE_SIZE * 0.5, py + TILE_SIZE * 0.7, sparkleSize, sparkleSize);
+                        }
                     }
                 });
             });
