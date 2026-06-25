@@ -161,14 +161,23 @@ function triggerExplosion(room, cx, cy) {
     io.to(room.screenId).emit('playSound', 'explosion');
 }
 
+function notifyTeamDeath(room, teamId) {
+    const entity = room.gameState.entities[teamId];
+    if (entity) entity.dead = true;
+    room.players.forEach(p => {
+        if (p.team === teamId) io.to(p.id).emit('youDied');
+    });
+}
+
 function checkExplosionHit(room, x, y) {
     Object.keys(room.gameState.entities).forEach(teamId => {
         const entity = room.gameState.entities[teamId];
-        if (!entity.dead && entity.x === x && entity.y === y) {
+        if (entity.x === x && entity.y === y && !entity.dead) {
             if (entity.hasShield) {
-                entity.hasShield = false; // Le bouclier absorbe l'explosion
+                entity.hasShield = false;
+                entity.shieldEndTime = null;
             } else {
-                entity.dead = true; // K.O.
+                notifyTeamDeath(room, teamId);
             }
         }
     });
@@ -241,7 +250,7 @@ function gameTick(roomCode) {
                 Object.keys(room.gameState.entities).forEach(teamId => {
                     const entity = room.gameState.entities[teamId];
                     if (!entity.dead && entity.x === s.x && entity.y === s.y) {
-                        entity.dead = true;
+                        notifyTeamDeath(room, teamId);
                     }
                 });
                 
@@ -442,14 +451,14 @@ io.on('connection', (socket) => {
             
             const sortedTeams = Object.keys(room.gameState.entities).sort();
             const colors = [
-                'transparent',
-                'rgba(255, 0, 0, 0.4)',
-                'rgba(0, 0, 255, 0.4)',
-                'rgba(0, 255, 0, 0.4)',
-                'rgba(255, 255, 0, 0.4)',
-                'rgba(255, 165, 0, 0.4)',
-                'rgba(128, 0, 128, 0.4)',
-                'rgba(0, 255, 255, 0.4)'
+                '#ffffff',
+                '#ff4444',
+                '#4444ff',
+                '#44ff44',
+                '#ffff44',
+                '#ffa500',
+                '#800080',
+                '#00ffff'
             ];
             
             room.players.forEach(p => {

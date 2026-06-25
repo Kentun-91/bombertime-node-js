@@ -298,6 +298,37 @@
             const btnDefuse = document.getElementById('btn-defuse');
             btnDefuse.classList.remove('consumed');
             btnDefuse.innerText = "💨";
+            
+            // Enable DPAD overlay
+            const deathOverlay = document.getElementById('death-overlay');
+            if (deathOverlay) deathOverlay.style.display = 'none';
+        });
+
+        socket.on('youDied', () => {
+            const controller = document.getElementById('controller-screen');
+            if (controller) {
+                let deathOverlay = document.getElementById('death-overlay');
+                if (!deathOverlay) {
+                    deathOverlay = document.createElement('div');
+                    deathOverlay.id = 'death-overlay';
+                    deathOverlay.style.position = 'absolute';
+                    deathOverlay.style.top = '0';
+                    deathOverlay.style.left = '0';
+                    deathOverlay.style.width = '100%';
+                    deathOverlay.style.height = '100%';
+                    deathOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                    deathOverlay.style.color = '#fff';
+                    deathOverlay.style.display = 'flex';
+                    deathOverlay.style.justifyContent = 'center';
+                    deathOverlay.style.alignItems = 'center';
+                    deathOverlay.style.fontSize = '3em';
+                    deathOverlay.style.fontWeight = 'bold';
+                    deathOverlay.style.zIndex = '100';
+                    deathOverlay.innerText = '💀 K.O. 💀';
+                    controller.appendChild(deathOverlay);
+                }
+                deathOverlay.style.display = 'flex';
+            }
         });
 
         // Gestion du Tour (Actif / Inactif)
