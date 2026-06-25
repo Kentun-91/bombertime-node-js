@@ -273,9 +273,21 @@
 
         let bombCooldownInterval = null;
 
-        socket.on('gameStarted', () => {
+        socket.on('gameStarted', (data) => {
             if (currentScreen === 'waiting-screen') {
                 showScreen('controller-screen');
+            }
+            if (data && data.color && data.color !== 'transparent') {
+                const centerNode = document.getElementById('dpad-center');
+                if (centerNode) {
+                    centerNode.style.visibility = 'visible';
+                    centerNode.style.backgroundColor = data.color;
+                    centerNode.style.borderRadius = '50%';
+                    centerNode.style.border = '3px solid #f9a826';
+                    centerNode.style.width = '40px';
+                    centerNode.style.height = '40px';
+                    centerNode.style.margin = 'auto';
+                }
             }
             // Reset buttons
             const btnBomb = document.getElementById('btn-bomb');

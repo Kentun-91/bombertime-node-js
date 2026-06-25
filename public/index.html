@@ -322,8 +322,8 @@
             if (entity.dead) {
                 if (!anim.deathStartTime) anim.deathStartTime = now;
                 const elapsed = now - anim.deathStartTime;
-                const deathFrame = Math.min(Math.floor(elapsed / 100), 6); // 100ms per frame, 7 frames total (0-6)
-                return deathFrame;
+                const deathFrame = Math.floor(elapsed / 100);
+                return deathFrame > 6 ? -1 : deathFrame; // -1 = ne plus dessiner
             }
 
             // L'animation tourne en boucle tout le temps
@@ -489,6 +489,9 @@
                 const entity = state.entities[teamId];
                 const frameIndex = updateEntityAnim(teamId, entity);
                 
+                if (frameIndex === -1) continue; // L'animation de mort est finie, on retire le sprite
+                
+                
                 let imgToDraw = null;
                 if (entity.dead) {
                     imgToDraw = assets.perso.death[frameIndex];
@@ -501,26 +504,31 @@
                 const py = offsetY + entity.y * TILE_SIZE;
 
                 if (imgToDraw && imgToDraw.complete) {
+                    // Les sprites sont en 32x32, on les affiche légèrement plus grand que la case pour qu'ils dépassent un peu (effet 2.5D)
+                    const drawSize = TILE_SIZE * 1.1; 
+                    const drawX = px - (drawSize - TILE_SIZE) / 2;
+                    const drawY = py - (drawSize - TILE_SIZE); // Aligné sur le bas de la case
+
                     if (entity.dead) {
-                        ctx.drawImage(imgToDraw, px, py, TILE_SIZE, TILE_SIZE);
+                        ctx.drawImage(imgToDraw, drawX, drawY, drawSize, drawSize);
                     } else {
                         // Coloration de l'équipe sur un canvas temporaire
-                        tintCanvas.width = TILE_SIZE;
-                        tintCanvas.height = TILE_SIZE;
+                        tintCanvas.width = imgToDraw.width;
+                        tintCanvas.height = imgToDraw.height;
                         tintCtx.imageSmoothingEnabled = false;
-                        tintCtx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
+                        tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
                         
-                        tintCtx.drawImage(imgToDraw, 0, 0, TILE_SIZE, TILE_SIZE);
+                        tintCtx.drawImage(imgToDraw, 0, 0);
                         
                         // Appliquer la teinte
                         tintCtx.globalCompositeOperation = 'source-atop';
                         tintCtx.fillStyle = currentColor;
-                        tintCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+                        tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
                         
                         // Réinitialiser le mode
                         tintCtx.globalCompositeOperation = 'source-over';
                         
-                        ctx.drawImage(tintCanvas, px, py, TILE_SIZE, TILE_SIZE);
+                        ctx.drawImage(tintCanvas, drawX, drawY, drawSize, drawSize);
                     }
                 } else if (entity.dead) {
                     // Fallback croix si pas d'image

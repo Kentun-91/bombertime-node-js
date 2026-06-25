@@ -438,7 +438,24 @@ io.on('connection', (socket) => {
                 gameTick(roomCode);
             }, 1000 / 20);
             
-            io.to(roomCode).emit('gameStarted');
+            io.to(room.screenId).emit('gameStarted');
+            
+            const sortedTeams = Object.keys(room.gameState.entities).sort();
+            const colors = [
+                'transparent',
+                'rgba(255, 0, 0, 0.4)',
+                'rgba(0, 0, 255, 0.4)',
+                'rgba(0, 255, 0, 0.4)',
+                'rgba(255, 255, 0, 0.4)',
+                'rgba(255, 165, 0, 0.4)',
+                'rgba(128, 0, 128, 0.4)',
+                'rgba(0, 255, 255, 0.4)'
+            ];
+            
+            room.players.forEach(p => {
+                const teamIndex = sortedTeams.indexOf(p.team);
+                io.to(p.id).emit('gameStarted', { color: colors[teamIndex % colors.length] });
+            });
             console.log(`Partie lancée dans le lobby ${roomCode}`);
         }
     });
