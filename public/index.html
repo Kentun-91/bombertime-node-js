@@ -392,39 +392,25 @@
                     const isDestroying = state.destroyingBlocks && state.destroyingBlocks.some(b => b.x === cell.x && b.y === cell.y);
                     
                     if (!isDestroying) {
-                        // Dessiner un "splat" de gâteau
-                        // Base crème
-                        ctx.fillStyle = 'rgba(255, 236, 179, 0.9)';
-                        ctx.beginPath();
-                        ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, TILE_SIZE/2.2, 0, Math.PI*2);
-                        ctx.fill();
+                        // Faisceau continu marron
+                        ctx.fillStyle = '#59361d';
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                         
-                        // Tâches roses (glaçage)
-                        ctx.fillStyle = 'rgba(255, 105, 180, 0.9)';
-                        ctx.beginPath();
-                        ctx.arc(px + TILE_SIZE/3, py + TILE_SIZE/3, TILE_SIZE/4, 0, Math.PI*2);
-                        ctx.arc(px + TILE_SIZE*2/3, py + TILE_SIZE*2/3, TILE_SIZE/4, 0, Math.PI*2);
-                        ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE*2/3, TILE_SIZE/5, 0, Math.PI*2);
-                        ctx.fill();
-
-                        // Confettis
-                        ctx.fillStyle = '#00bfff';
-                        ctx.fillRect(px + TILE_SIZE/4, py + TILE_SIZE/2, 4, 4);
-                        ctx.fillRect(px + TILE_SIZE*3/4, py + TILE_SIZE*3/4, 4, 4);
-                        ctx.fillStyle = '#ffd700';
-                        ctx.fillRect(px + TILE_SIZE*3/4, py + TILE_SIZE/4, 4, 4);
-                        ctx.fillRect(px + TILE_SIZE/2, py + TILE_SIZE/4, 4, 4);
+                        // Paillettes roses
+                        ctx.fillStyle = '#dca4a4';
+                        ctx.fillRect(px + TILE_SIZE * 0.2, py + TILE_SIZE * 0.2, 4, 4);
+                        ctx.fillRect(px + TILE_SIZE * 0.8, py + TILE_SIZE * 0.5, 3, 3);
+                        ctx.fillRect(px + TILE_SIZE * 0.5, py + TILE_SIZE * 0.8, 4, 4);
+                        ctx.fillRect(px + TILE_SIZE * 0.3, py + TILE_SIZE * 0.7, 2, 2);
+                        ctx.fillRect(px + TILE_SIZE * 0.7, py + TILE_SIZE * 0.2, 3, 3);
                     } else {
-                        // Très peu d'explosion sur les blocs détruits (juste quelques confettis pour voir la brique se casser)
-                        ctx.fillStyle = 'rgba(255, 105, 180, 0.6)';
-                        ctx.beginPath();
-                        ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, TILE_SIZE/8, 0, Math.PI*2);
-                        ctx.fill();
+                        // Explosion légèrement transparente sur les blocs en destruction
+                        ctx.fillStyle = 'rgba(89, 54, 29, 0.7)'; // #59361d transparent
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                         
-                        ctx.fillStyle = '#00bfff';
-                        ctx.fillRect(px + TILE_SIZE/3, py + TILE_SIZE/3, 3, 3);
-                        ctx.fillStyle = '#ffd700';
-                        ctx.fillRect(px + TILE_SIZE*2/3, py + TILE_SIZE*2/3, 3, 3);
+                        ctx.fillStyle = '#dca4a4';
+                        ctx.fillRect(px + TILE_SIZE / 3, py + TILE_SIZE / 3, 3, 3);
+                        ctx.fillRect(px + TILE_SIZE * 0.6, py + TILE_SIZE * 0.6, 3, 3);
                     }
                 });
             });
