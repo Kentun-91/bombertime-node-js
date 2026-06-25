@@ -38,6 +38,7 @@
         .dpad-row { display: flex; gap: 0; margin: 0; }
         .dir-btn { width: 70px; height: 70px; font-size: 2em; border-radius: 15px; background: #5c3a21; color: white; border: 2px solid #f9a826; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #3a2211; margin: 2px; }
         .dir-btn:active { background: #f9a826; color: #5c3a21; transform: translateY(4px); box-shadow: 0 0 0 #3a2211; }
+        #dpad-center { width: 70px; height: 70px; margin: 2px; display: flex; justify-content: center; align-items: center; border-radius: 15px; }
         
         .actions { display: flex; flex-direction: column; gap: 10px; }
         .act-btn { width: 80px; height: 80px; font-size: 2.5em; border-radius: 50%; background: #ff6b6b; color: white; border: 3px solid #d81b60; user-select: none; touch-action: manipulation; box-shadow: 0 4px 0 #a01140; margin: 2px; }
@@ -51,6 +52,7 @@
             #controls { flex-direction: column; gap: 30px; margin-top: 20px; }
             .dpad-row { gap: 0px; margin: 0; }
             .dir-btn { width: 105px; height: 105px; font-size: 3.5em; }
+            #dpad-center { width: 105px; height: 105px; }
             .actions { flex-direction: row; gap: 10px; }
             .act-btn { width: 120px; height: 120px; font-size: 4em; }
         }
@@ -122,6 +124,7 @@
                 <button id="btn-up" class="dir-btn">▲</button>
                 <div class="dpad-row">
                     <button id="btn-left" class="dir-btn">◀</button>
+                    <div id="dpad-center"></div>
                     <button id="btn-right" class="dir-btn">▶</button>
                 </div>
                 <button id="btn-down" class="dir-btn">▼</button>
@@ -277,16 +280,33 @@
             if (currentScreen === 'waiting-screen') {
                 showScreen('controller-screen');
             }
-            if (data && data.color && data.color !== 'transparent') {
+            if (data && data.color) {
                 const centerNode = document.getElementById('dpad-center');
                 if (centerNode) {
-                    centerNode.style.visibility = 'visible';
-                    centerNode.style.backgroundColor = data.color;
-                    centerNode.style.borderRadius = '50%';
-                    centerNode.style.border = '3px solid #f9a826';
-                    centerNode.style.width = '40px';
-                    centerNode.style.height = '40px';
-                    centerNode.style.margin = 'auto';
+                    centerNode.innerHTML = '';
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 64; // Resolution of the sprite display
+                    canvas.height = 64;
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
+                    canvas.style.objectFit = 'contain';
+                    centerNode.appendChild(canvas);
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = false;
+
+                    const img = new Image();
+                    img.src = '/asset/perso/bottom1.png';
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        // Apply tint
+                        ctx.globalCompositeOperation = 'source-atop';
+                        ctx.fillStyle = data.color;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.globalCompositeOperation = 'source-over';
+                    };
                 }
             }
             // Reset buttons

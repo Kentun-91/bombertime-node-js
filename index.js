@@ -451,14 +451,14 @@ io.on('connection', (socket) => {
             
             const sortedTeams = Object.keys(room.gameState.entities).sort();
             const colors = [
-                '#ffffff',
-                '#ff4444',
-                '#4444ff',
-                '#44ff44',
-                '#ffff44',
-                '#ffa500',
-                '#800080',
-                '#00ffff'
+                'rgba(255, 255, 255, 0)',
+                'rgba(255, 0, 0, 0.4)',
+                'rgba(0, 0, 255, 0.4)',
+                'rgba(0, 255, 0, 0.4)',
+                'rgba(255, 255, 0, 0.4)',
+                'rgba(255, 165, 0, 0.4)',
+                'rgba(128, 0, 128, 0.4)',
+                'rgba(0, 255, 255, 0.4)'
             ];
             
             room.players.forEach(p => {
