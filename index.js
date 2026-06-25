@@ -216,7 +216,7 @@ function gameTick(roomCode) {
     
     // Calculate timers for HUD
     const playingTime = now - room.gameStartTime;
-    const TIME_BEFORE_SHRINK = 60000; // 60 secondes
+    const TIME_BEFORE_SHRINK = 45000; // 45 secondes
     
     room.gameState.timeToSwitch = Math.max(0, Math.ceil((15000 - (now - room.lastSwitchTime)) / 1000));
     
@@ -268,7 +268,7 @@ function gameTick(roomCode) {
 
                 s.x = nx;
                 s.y = ny;
-                s.nextDropTime = now + 500; // 1 bloc toutes les 0.5s
+                s.nextDropTime = now + 250; // 1 bloc toutes les 0.25s
             }
         }
     }
@@ -288,6 +288,15 @@ function gameTick(roomCode) {
             return false;
         }
         return true;
+    });
+
+    // Expiration des boucliers (15 secondes)
+    Object.keys(room.gameState.entities).forEach(teamId => {
+        const entity = room.gameState.entities[teamId];
+        if (entity.hasShield && entity.shieldEndTime && now > entity.shieldEndTime) {
+            entity.hasShield = false;
+            entity.shieldEndTime = null;
+        }
     });
 
     // Vérifier s'il y a un gagnant
@@ -372,7 +381,7 @@ io.on('connection', (socket) => {
             room.gameState.status = 'starting';
             room.gameState.countdown = 10;
             room.gameState.countdownEndTime = Date.now() + 10000;
-            room.gameState.timeToShrink = 60;
+            room.gameState.timeToShrink = 45;
             room.gameState.timeToSwitch = 15;
             room.gameState.shrink = {
                 active: false,
@@ -564,9 +573,11 @@ io.on('connection', (socket) => {
             // Logique de collision stricte Serveur
             if (newX >= 0 && newX < room.gameState.width && newY >= 0 && newY < room.gameState.height) {
                 if (room.gameState.grid[newY][newX] === TILE_EMPTY) {
-                    // Empêcher de marcher sur une bombe (optionnel, mais typique de bomberman)
+                    // Empêcher de marcher sur une bombe ou un autre joueur
                     const isBomb = room.gameState.bombs.some(b => b.x === newX && b.y === newY);
-                    if (!isBomb) {
+                    const isPlayer = Object.keys(room.gameState.entities).some(id => id !== player.team && !room.gameState.entities[id].dead && room.gameState.entities[id].x === newX && room.gameState.entities[id].y === newY);
+                    
+                    if (!isBomb && !isPlayer) {
                         teamEntity.x = newX;
                         teamEntity.y = newY;
 
@@ -578,6 +589,7 @@ io.on('connection', (socket) => {
                             if (item.type === 'shield') {
                                 room.gameState.items.splice(itemIndex, 1);
                                 teamEntity.hasShield = true;
+                                teamEntity.shieldEndTime = Date.now() + 15000; // 15 secondes
                             } else if (item.type.startsWith('donuts')) {
                                 const otherItem = room.gameState.items.find(i => i.pairId === item.pairId && i !== item);
                                 
@@ -608,7 +620,10 @@ io.on('connection', (socket) => {
 
         if (type === 'bomb') {
             const now = Date.now();
-            if (now - teamEntity.lastBombTime >= 5000) {
+            const playingTimeMs = now - room.gameStartTime;
+            const currentCooldown = Math.min(5000 + Math.floor(playingTimeMs / 10000) * 1000, 15000); // +1s toutes les 10s (max 15s)
+            
+            if (now - teamEntity.lastBombTime >= currentCooldown) {
                 // Poser une bombe (max 1 par case)
                 const exists = room.gameState.bombs.some(b => b.x === teamEntity.x && b.y === teamEntity.y);
                 if (!exists) {
@@ -623,7 +638,7 @@ io.on('connection', (socket) => {
                     // Notifier l'équipe du cooldown
                     room.players.forEach(p => {
                         if (p.team === player.team) {
-                            io.to(p.id).emit('cooldown', { type: 'bomb', duration: 5000 });
+                            io.to(p.id).emit('cooldown', { type: 'bomb', duration: currentCooldown });
                         }
                     });
                 }
